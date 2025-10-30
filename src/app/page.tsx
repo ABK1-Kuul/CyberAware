@@ -29,7 +29,7 @@ export default function LoginPage() {
           <div className="flex justify-center items-center mb-4">
             <ShieldIcon className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">Welcome to CyberAware</CardTitle>
+          <CardTitle className="text-2xl font-headline">Welcome to RedFox</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>

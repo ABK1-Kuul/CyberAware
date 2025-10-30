@@ -47,7 +47,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <ShieldIcon className="size-8 text-primary" />
-          <h1 className="text-xl font-semibold font-headline text-primary-foreground">CyberAware</h1>
+          <h1 className="text-xl font-semibold font-headline text-primary-foreground">RedFox</h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">

@@ -3,8 +3,8 @@ import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
-  title: 'CyberAware',
-  description: 'Cybersecurity Awareness Training Platform',
+  title: 'RedFox',
+  description: 'Cybersecurity training inspired by the rare Ethiopian fox.',
 }
 
 export default function RootLayout({

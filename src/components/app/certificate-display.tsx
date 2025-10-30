@@ -26,7 +26,7 @@ export function CertificateDisplay({ enrollment, certificate }: { enrollment: En
                 <div className="flex items-center gap-3">
                     <ShieldIcon className="w-12 h-12 text-primary" />
                     <div>
-                        <h1 className="text-3xl font-bold font-headline text-foreground">CyberAware</h1>
+                        <h1 className="text-3xl font-bold font-headline text-foreground">RedFox</h1>
                         <p className="text-sm text-muted-foreground">Corporate Security Training</p>
                     </div>
                 </div>
