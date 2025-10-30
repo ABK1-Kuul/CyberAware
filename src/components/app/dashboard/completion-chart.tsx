@@ -8,7 +8,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts"
 
 type CompletionData = {
   date: string
