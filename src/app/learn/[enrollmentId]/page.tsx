@@ -33,7 +33,7 @@ export default async function LearnPage({ params }: { params: { enrollmentId: st
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
             {isCompleted ? (
-                <Link href={`/certificate/cert_1`} passHref>
+                <Link href={`/certificate/cert_1`}>
                     <Button>
                         <Award className="mr-2 h-4 w-4"/> View Certificate
                     </Button>

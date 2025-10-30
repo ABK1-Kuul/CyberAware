@@ -47,7 +47,7 @@ export default function LoginPage() {
               </div>
               <Input id="password" type="password" required defaultValue="••••••••" />
             </div>
-            <Link href="/dashboard" legacyBehavior passHref>
+            <Link href="/dashboard">
               <Button type="submit" className="w-full">
                 Login
               </Button>

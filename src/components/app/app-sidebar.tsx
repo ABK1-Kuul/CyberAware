@@ -54,7 +54,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
+              <Link href={item.href}>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={item.label}
@@ -82,7 +82,7 @@ export function AppSidebar() {
         </div>
         <Separator className="my-2" />
         <div className="p-2">
-          <Link href="#" legacyBehavior passHref>
+          <Link href="#">
             <SidebarMenuButton>
               <Avatar className="h-8 w-8">
                 <AvatarImage src="https://picsum.photos/seed/admin/100/100" data-ai-hint="person portrait" alt="Admin" />
