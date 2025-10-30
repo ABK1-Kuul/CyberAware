@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "logo",
+      "description": "CyberAware Logo",
+      "imageUrl": "https://images.unsplash.com/photo-1628927013432-99ae87d89cb7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxsb2dvJTIwc2hpZWxkfGVufDB8fHx8MTc2MTcyMjIwNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "logo shield"
+    },
+    {
+      "id": "certificate-background",
+      "description": "Certificate Background Pattern",
+      "imageUrl": "https://images.unsplash.com/photo-1476445704028-a36e0c798192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxhYnN0cmFjdCUyMGdlb21ldHJpY3xlbnwwfHx8fDE3NjE3NTMyMzV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract geometric"
+    },
+    {
+      "id": "admin-avatar",
+      "description": "Admin user avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjE3ODg3ODd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    }
+  ]
 }
