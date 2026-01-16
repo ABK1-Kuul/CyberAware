@@ -1,103 +1,233 @@
 import type { User, Course, Enrollment, AuditLog, Certificate, EnrollmentStatus } from './types'
 import { subDays, format } from 'date-fns'
+import { prisma } from './prisma'
 
-const now = new Date()
+// Helper function to map Prisma enum values to TypeScript types
+function mapEnrollmentStatus(status: string): EnrollmentStatus {
+  switch (status) {
+    case 'NotStarted':
+      return 'Not Started'
+    case 'InProgress':
+      return 'In Progress'
+    case 'Completed':
+      return 'Completed'
+    default:
+      return 'Not Started'
+  }
+}
 
-// Mock Users
-export const users: User[] = [
-  { id: 'usr_1', name: 'Alice Johnson', email: 'alice@example.com', role: 'learner', team: 'Sales', createdAt: subDays(now, 25).toISOString(), avatarUrl: 'https://picsum.photos/seed/usr_1/100/100' },
-  { id: 'usr_2', name: 'Bob Williams', email: 'bob@example.com', role: 'learner', team: 'Engineering', createdAt: subDays(now, 45).toISOString(), avatarUrl: 'https://picsum.photos/seed/usr_2/100/100' },
-  { id: 'usr_3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'learner', team: 'Marketing', createdAt: subDays(now, 10).toISOString(), avatarUrl: 'https://picsum.photos/seed/usr_3/100/100' },
-  { id: 'usr_4', name: 'Diana Prince', email: 'diana@example.com', role: 'learner', team: 'Engineering', createdAt: subDays(now, 80).toISOString(), avatarUrl: 'https://picsum.photos/seed/usr_4/100/100' },
-  { id: 'usr_5', name: 'Ethan Hunt', email: 'ethan@example.com', role: 'learner', team: 'Sales', createdAt: subDays(now, 5).toISOString(), avatarUrl: 'https://picsum.photos/seed/usr_5/100/100' },
-  { id: 'usr_admin', name: 'Admin User', email: 'admin@cyberaware.com', role: 'admin', team: 'IT', createdAt: subDays(now, 365).toISOString(), avatarUrl: 'https://picsum.photos/seed/admin/100/100' },
-]
-
-// Mock Courses
-export const courses: Course[] = [
-  { id: 'crs_1', title: 'Phishing Awareness 101', description: 'Learn to identify and report phishing attempts.', version: '1.2', scormPath: '/scorm/phishing-101', createdAt: subDays(now, 60).toISOString(), enrollmentCount: 3 },
-  { id: 'crs_2', title: 'Secure Password Practices', description: 'Create and manage strong, unique passwords.', version: '1.0', scormPath: '/scorm/passwords-10', createdAt: subDays(now, 90).toISOString(), enrollmentCount: 2 },
-  { id: 'crs_3', title: 'Social Engineering Defense', description: 'Recognize and thwart social engineering tactics.', version: '2.0', scormPath: '/scorm/social-eng-20', createdAt: subDays(now, 30).toISOString(), enrollmentCount: 1 },
-  { id: 'crs_4', title: 'Advanced Threat Protection', description: 'A deep dive into modern cyber threats for technical staff.', version: '1.5', scormPath: '/scorm/adv-threat-15', createdAt: subDays(now, 120).toISOString(), enrollmentCount: 1 },
-]
-
-// Mock Enrollments
-export const enrollments: Enrollment[] = [
-  { id: 'enr_1', userId: 'usr_1', courseId: 'crs_1', status: 'Completed', progress: 100, assignedAt: subDays(now, 20).toISOString(), completedAt: subDays(now, 18).toISOString(), user: users[0], course: courses[0] },
-  { id: 'enr_2', userId: 'usr_2', courseId: 'crs_1', status: 'In Progress', progress: 50, assignedAt: subDays(now, 15).toISOString(), completedAt: null, user: users[1], course: courses[0] },
-  { id: 'enr_3', userId: 'usr_3', courseId: 'crs_1', status: 'Not Started', progress: 0, assignedAt: subDays(now, 5).toISOString(), completedAt: null, user: users[2], course: courses[0] },
-  { id: 'enr_4', userId: 'usr_1', courseId: 'crs_2', status: 'In Progress', progress: 25, assignedAt: subDays(now, 10).toISOString(), completedAt: null, user: users[0], course: courses[1] },
-  { id: 'enr_5', userId: 'usr_4', courseId: 'crs_2', status: 'Completed', progress: 100, assignedAt: subDays(now, 40).toISOString(), completedAt: subDays(now, 35).toISOString(), user: users[3], course: courses[1] },
-  { id: 'enr_6', userId: 'usr_5', courseId: 'crs_3', status: 'Not Started', progress: 0, assignedAt: subDays(now, 2).toISOString(), completedAt: null, user: users[4], course: courses[2] },
-  { id: 'enr_7', userId: 'usr_2', courseId: 'crs_4', status: 'In Progress', progress: 75, assignedAt: subDays(now, 60).toISOString(), completedAt: null, user: users[1], course: courses[3] },
-]
-
-// Mock Audit Logs
-export const auditLogs: AuditLog[] = [
-  { id: 'aud_1', actorId: 'usr_admin', action: 'Course Uploaded', details: { courseTitle: 'Advanced Threat Protection' }, createdAt: subDays(now, 120).toISOString(), actor: users[5] },
-  { id: 'aud_2', actorId: 'usr_admin', action: 'User Assigned', details: { user: 'Alice Johnson', course: 'Phishing Awareness 101' }, createdAt: subDays(now, 20).toISOString(), actor: users[5] },
-  { id: 'aud_3', actorId: 'usr_1', action: 'Course Completed', details: { courseTitle: 'Phishing Awareness 101' }, createdAt: subDays(now, 18).toISOString(), actor: users[0] },
-  { id: 'aud_4', actorId: 'gophish_webhook', action: 'User Assigned (Auto)', details: { user: 'Charlie Brown', course: 'Phishing Awareness 101', reason: 'Failed phishing test' }, createdAt: subDays(now, 5).toISOString(), actor: { id: 'sys_gophish', name: 'GoPhish Hook', email: 'system@internal', role: 'admin', team: 'System', createdAt: now.toISOString(), avatarUrl: '' } },
-  { id: 'aud_5', actorId: 'usr_2', action: 'Course Started', details: { courseTitle: 'Advanced Threat Protection' }, createdAt: subDays(now, 60).toISOString(), actor: users[1] },
-]
-
-// Mock Certificates
-export const certificates: Certificate[] = [
-  { id: 'cert_1', enrollmentId: 'enr_1', path: '/certs/cert_1.pdf', issuedAt: subDays(now, 18).toISOString(), uuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
-  { id: 'cert_2', enrollmentId: 'enr_5', path: '/certs/cert_2.pdf', issuedAt: subDays(now, 35).toISOString(), uuid: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
-]
-
-// API-like functions
+// API-like functions using Prisma
 export async function getDashboardStats() {
-  const totalUsers = users.filter(u => u.role === 'learner').length
-  const totalCourses = courses.length
-  const completed = enrollments.filter(e => e.status === 'Completed').length
-  const inProgress = enrollments.filter(e => e.status === 'In Progress').length
+  const totalUsers = await prisma.user.count({
+    where: { role: 'learner' }
+  })
+  const totalCourses = await prisma.course.count()
+  const completed = await prisma.enrollment.count({
+    where: { status: 'Completed' }
+  })
+  const inProgress = await prisma.enrollment.count({
+    where: { status: 'InProgress' }
+  })
   return { totalUsers, totalCourses, completed, inProgress }
 }
 
 export async function getCompletionData() {
-    const data: { date: string, Completed: number, 'In Progress': number }[] = [];
-    for (let i = 29; i >= 0; i--) {
-        const date = subDays(new Date(), i);
-        const formattedDate = format(date, 'MMM dd');
-        
-        const completedOnDay = enrollments.filter(e => e.completedAt && format(new Date(e.completedAt), 'MMM dd') === formattedDate).length;
-        
-        const inProgressOnDay = enrollments.filter(e => {
-            const assignedDate = new Date(e.assignedAt);
-            return assignedDate <= date && (e.completedAt === null || new Date(e.completedAt) > date);
-        }).length;
+  const data: { date: string, Completed: number, 'In Progress': number }[] = [];
+  const now = new Date();
+  
+  for (let i = 29; i >= 0; i--) {
+    const date = subDays(now, i);
+    const formattedDate = format(date, 'MMM dd');
+    
+    // Create date boundaries for the day
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    // Get completed enrollments on this day
+    const completedOnDay = await prisma.enrollment.count({
+      where: {
+        completedAt: {
+          gte: startOfDay,
+          lt: endOfDay
+        }
+      }
+    });
+    
+    // Get in-progress enrollments (assigned before or on this day, not completed or completed after)
+    const inProgressEnrollments = await prisma.enrollment.findMany({
+      where: {
+        assignedAt: { lte: endOfDay },
+        status: 'InProgress',
+        OR: [
+          { completedAt: null },
+          { completedAt: { gt: endOfDay } }
+        ]
+      }
+    });
+    
+    const inProgressOnDay = inProgressEnrollments.length;
 
-        data.push({
-            date: formattedDate,
-            'Completed': completedOnDay,
-            'In Progress': inProgressOnDay,
-        });
-    }
-    return data;
+    data.push({
+      date: formattedDate,
+      'Completed': completedOnDay,
+      'In Progress': inProgressOnDay,
+    });
+  }
+  return data;
 }
 
 export async function getRecentActivity(): Promise<AuditLog[]> {
-  return auditLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
+  const logs = await prisma.auditLog.findMany({
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      actor: true
+    }
+  })
+  
+  return logs.map(log => ({
+    id: log.id,
+    actorId: log.actorId,
+    action: log.action,
+    details: log.details as Record<string, any>,
+    createdAt: log.createdAt.toISOString(),
+    actor: {
+      id: log.actor.id,
+      name: log.actor.name,
+      email: log.actor.email,
+      role: log.actor.role as 'admin' | 'learner',
+      team: log.actor.team,
+      createdAt: log.actor.createdAt.toISOString(),
+      avatarUrl: log.actor.avatarUrl
+    }
+  }))
 }
 
 export async function getCourses(): Promise<Course[]> {
-  return courses
+  const courses = await prisma.course.findMany({
+    orderBy: { createdAt: 'desc' }
+  })
+  
+  return courses.map(course => ({
+    id: course.id,
+    title: course.title,
+    description: course.description,
+    version: course.version,
+    scormPath: course.scormPath,
+    createdAt: course.createdAt.toISOString(),
+    enrollmentCount: course.enrollmentCount
+  }))
 }
 
 export async function getUsers(): Promise<User[]> {
-    return users.filter(u => u.role === 'learner');
+  const users = await prisma.user.findMany({
+    where: { role: 'learner' },
+    orderBy: { createdAt: 'desc' }
+  })
+  
+  return users.map(user => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role as 'admin' | 'learner',
+    team: user.team,
+    createdAt: user.createdAt.toISOString(),
+    avatarUrl: user.avatarUrl
+  }))
 }
 
 export async function getEnrollmentsForCourse(courseId: string): Promise<Enrollment[]> {
-  return enrollments.filter(e => e.courseId === courseId);
+  const enrollments = await prisma.enrollment.findMany({
+    where: { courseId },
+    include: {
+      user: true,
+      course: true
+    }
+  })
+  
+  return enrollments.map(enrollment => ({
+    id: enrollment.id,
+    userId: enrollment.userId,
+    courseId: enrollment.courseId,
+    status: mapEnrollmentStatus(enrollment.status),
+    progress: enrollment.progress,
+    assignedAt: enrollment.assignedAt.toISOString(),
+    completedAt: enrollment.completedAt?.toISOString() ?? null,
+    user: {
+      id: enrollment.user.id,
+      name: enrollment.user.name,
+      email: enrollment.user.email,
+      role: enrollment.user.role as 'admin' | 'learner',
+      team: enrollment.user.team,
+      createdAt: enrollment.user.createdAt.toISOString(),
+      avatarUrl: enrollment.user.avatarUrl
+    },
+    course: {
+      id: enrollment.course.id,
+      title: enrollment.course.title,
+      description: enrollment.course.description,
+      version: enrollment.course.version,
+      scormPath: enrollment.course.scormPath,
+      createdAt: enrollment.course.createdAt.toISOString(),
+      enrollmentCount: enrollment.course.enrollmentCount
+    }
+  }))
 }
 
 export async function getEnrollment(enrollmentId: string): Promise<Enrollment | undefined> {
-    return enrollments.find(e => e.id === enrollmentId);
+  const enrollment = await prisma.enrollment.findUnique({
+    where: { id: enrollmentId },
+    include: {
+      user: true,
+      course: true
+    }
+  })
+  
+  if (!enrollment) return undefined
+  
+  return {
+    id: enrollment.id,
+    userId: enrollment.userId,
+    courseId: enrollment.courseId,
+    status: mapEnrollmentStatus(enrollment.status),
+    progress: enrollment.progress,
+    assignedAt: enrollment.assignedAt.toISOString(),
+    completedAt: enrollment.completedAt?.toISOString() ?? null,
+    user: {
+      id: enrollment.user.id,
+      name: enrollment.user.name,
+      email: enrollment.user.email,
+      role: enrollment.user.role as 'admin' | 'learner',
+      team: enrollment.user.team,
+      createdAt: enrollment.user.createdAt.toISOString(),
+      avatarUrl: enrollment.user.avatarUrl
+    },
+    course: {
+      id: enrollment.course.id,
+      title: enrollment.course.title,
+      description: enrollment.course.description,
+      version: enrollment.course.version,
+      scormPath: enrollment.course.scormPath,
+      createdAt: enrollment.course.createdAt.toISOString(),
+      enrollmentCount: enrollment.course.enrollmentCount
+    }
+  }
 }
 
 export async function getCertificateForEnrollment(enrollmentId: string): Promise<Certificate | undefined> {
-    return certificates.find(c => c.enrollmentId === enrollmentId);
+  const certificate = await prisma.certificate.findUnique({
+    where: { enrollmentId }
+  })
+  
+  if (!certificate) return undefined
+  
+  return {
+    id: certificate.id,
+    enrollmentId: certificate.enrollmentId,
+    path: certificate.path,
+    issuedAt: certificate.issuedAt.toISOString(),
+    uuid: certificate.uuid
+  }
 }

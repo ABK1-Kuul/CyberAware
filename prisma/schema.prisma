@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole @default(learner)
+  team      String
+  createdAt DateTime @default(now()) @map("created_at")
+  avatarUrl String   @map("avatar_url")
+
+  enrollments Enrollment[]
+  auditLogs   AuditLog[]
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+}
+
+model Course {
+  id             String   @id @default(cuid())
+  title          String
+  description    String   @db.Text
+  version        String
+  scormPath      String   @map("scorm_path")
+  createdAt      DateTime @default(now()) @map("created_at")
+  enrollmentCount Int     @default(0) @map("enrollment_count")
+
+  enrollments Enrollment[]
+
+  @@map("courses")
+  @@index([createdAt])
+}
+
+model Enrollment {
+  id          String            @id @default(cuid())
+  userId      String            @map("user_id")
+  courseId    String            @map("course_id")
+  status      EnrollmentStatus  @default(NotStarted)
+  progress    Int               @default(0)
+  assignedAt  DateTime          @default(now()) @map("assigned_at")
+  completedAt DateTime?         @map("completed_at")
+
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  scormData   ScormData?
+  certificate Certificate?
+
+  @@map("enrollments")
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@index([assignedAt])
+  @@index([completedAt])
+  @@unique([userId, courseId])
+}
+
+model ScormData {
+  id           String   @id @default(cuid())
+  enrollmentId String   @unique @map("enrollment_id")
+  cmiData      Json     @map("cmi_data") @db.Json
+  lastLocation String   @map("last_location")
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("scorm_data")
+}
+
+model Certificate {
+  id           String    @id @default(cuid())
+  enrollmentId String    @unique @map("enrollment_id")
+  path         String
+  issuedAt     DateTime  @default(now()) @map("issued_at")
+  uuid         String    @unique
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+  @@index([uuid])
+  @@index([issuedAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String   @map("actor_id")
+  action    String
+  details   Json     @db.Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+enum UserRole {
+  admin
+  learner
+}
+
+enum EnrollmentStatus {
+  NotStarted
+  InProgress
+  Completed
+}
