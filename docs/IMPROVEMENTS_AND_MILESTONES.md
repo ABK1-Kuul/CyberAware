@@ -1,31 +1,175 @@
 # CyberAware: Improvements & Milestones
 
+## 🏗️ Current Technology Stack
+
+### Backend & Database
+- **Database**: MySQL 8.0+ with Prisma ORM
+- **ORM**: Prisma 5.22.0
+- **Data Access**: All queries use Prisma Client
+- **Schema**: Complete Prisma schema with 6 models, relationships, and indexes
+
+### Frontend
+- **Framework**: Next.js 15.3.3 (App Router)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 3.4.1 + Shadcn UI
+- **Components**: 30+ reusable UI components
+
+### AI & Integrations
+- **AI Framework**: Google Genkit 1.20.0
+- **AI Provider**: Google GenAI
+- **Webhooks**: GoPhish integration endpoint (partial)
+
+### Development Tools
+- **Package Manager**: npm
+- **Build Tool**: Next.js Turbopack
+- **Linting**: ESLint
+- **Type Checking**: TypeScript
+
+---
+
 ## 📊 Current State Assessment
 
 ### ✅ What's Working
 - **UI/UX Foundation**: Complete design system with dark theme, responsive layout
-- **Admin Dashboard**: Stats cards, charts, and activity feed (using mock data)
+- **Admin Dashboard**: Stats cards, charts, and activity feed
 - **Course Management UI**: Table, upload dialog, assignment dialogs
 - **Navigation**: Sidebar with proper routing
-- **Component Library**: Full Shadcn UI integration
+- **Component Library**: Full Shadcn UI integration (30+ components)
 - **Type System**: Well-defined TypeScript interfaces
+- **Database Layer**: MySQL with Prisma ORM fully integrated
+- **Data Access**: All data functions migrated to Prisma queries
+- **Database Schema**: Complete Prisma schema with relationships, indexes, and constraints
+- **Seed Data**: SQL dump available for initial data population
 
 ### ⚠️ What Needs Work
-- **Data Layer**: Mock data only, no Firebase integration
-- **Authentication**: No real auth system
+- **Authentication**: No real auth system (database ready, but no auth middleware)
 - **SCORM Processing**: Upload UI exists but no backend processing
 - **Course Player**: Simulated, no real SCORM runtime
 - **Certificate Generation**: Display only, no PDF generation
 - **GoPhish Integration**: Webhook receives but doesn't process
 - **Email System**: Not implemented
 - **File Storage**: No file upload/storage system
+- **Migrations**: Initial migration needs to be generated and applied
+
+---
+
+## 📂 Current Project Structure
+
+```
+CyberAware/
+├── .idx/                          # IDX editor configuration
+│   ├── dev.nix                     # Development environment config
+│   └── icon.png                    # Project icon
+├── docs/                           # Project documentation
+│   ├── blueprint.md                # Core feature blueprint
+│   └── IMPROVEMENTS_AND_MILESTONES.md  # This file
+├── prisma/                         # Database schema and migrations
+│   ├── schema.prisma               # Prisma schema (MySQL)
+│   ├── seed.sql                    # SQL dump with initial data
+│   ├── MIGRATION_GUIDE.md          # Database setup guide
+│   └── README.md                   # Prisma documentation
+├── src/
+│   ├── ai/                         # AI/Genkit integration
+│   │   ├── dev.ts                  # Genkit dev server config
+│   │   └── genkit.ts               # Genkit instance setup
+│   ├── app/                        # Next.js App Router
+│   │   ├── (admin)/                # Admin route group
+│   │   │   ├── courses/
+│   │   │   │   └── page.tsx        # Courses management page
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx        # Admin dashboard
+│   │   │   ├── settings/
+│   │   │   │   └── page.tsx        # Settings page
+│   │   │   ├── users/
+│   │   │   │   └── page.tsx        # Users management page
+│   │   │   └── layout.tsx          # Admin layout with sidebar
+│   │   ├── api/                    # API routes
+│   │   │   └── integrations/
+│   │   │       └── gophish/
+│   │   │           └── webhook/
+│   │   │               └── route.ts # GoPhish webhook handler
+│   │   ├── certificate/
+│   │   │   └── [certificateId]/
+│   │   │       └── page.tsx        # Certificate display page
+│   │   ├── learn/
+│   │   │   └── [enrollmentId]/
+│   │   │       └── page.tsx        # Course player page
+│   │   ├── favicon.ico
+│   │   ├── globals.css              # Global styles & theme
+│   │   ├── layout.tsx               # Root layout
+│   │   └── page.tsx                 # Landing/login page
+│   ├── components/
+│   │   ├── app/                     # Feature-specific components
+│   │   │   ├── app-sidebar.tsx      # Main navigation sidebar
+│   │   │   ├── certificate-display.tsx
+│   │   │   ├── courses/
+│   │   │   │   ├── course-table.tsx
+│   │   │   │   └── upload-course-dialog.tsx
+│   │   │   ├── dashboard/
+│   │   │   │   ├── completion-chart.tsx
+│   │   │   │   ├── recent-activity-table.tsx
+│   │   │   │   └── stats-cards.tsx
+│   │   │   └── header.tsx
+│   │   └── ui/                      # Shadcn UI components (30+)
+│   │       ├── accordion.tsx
+│   │       ├── alert.tsx
+│   │       ├── alert-dialog.tsx
+│   │       ├── avatar.tsx
+│   │       ├── badge.tsx
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── chart.tsx
+│   │       ├── dialog.tsx
+│   │       ├── form.tsx
+│   │       ├── input.tsx
+│   │       ├── table.tsx
+│   │       ├── toast.tsx
+│   │       └── ... (25+ more UI components)
+│   ├── hooks/                       # Custom React hooks
+│   │   ├── use-mobile.tsx
+│   │   └── use-toast.ts
+│   └── lib/                         # Shared utilities
+│       ├── data.ts                  # Data access layer (Prisma)
+│       ├── prisma.ts                # Prisma client singleton
+│       ├── types.ts                 # TypeScript type definitions
+│       ├── utils.ts                 # Utility functions
+│       ├── placeholder-images.json
+│       └── placeholder-images.ts
+├── .gitignore
+├── apphosting.yaml                  # Firebase App Hosting config
+├── components.json                  # Shadcn UI config
+├── MIGRATION_SUMMARY.md             # Firebase→MySQL migration summary
+├── next.config.ts                   # Next.js configuration
+├── package.json                     # Dependencies & scripts
+├── postcss.config.mjs
+├── README.md
+├── tailwind.config.ts               # Tailwind CSS configuration
+├── THEME_AND_ARCHITECTURE_follow.md # Architecture documentation
+└── tsconfig.json                    # TypeScript configuration
+```
+
+### Database Schema (Prisma)
+
+**Models:**
+- `User` - User accounts (admin/learner roles)
+- `Course` - Training courses
+- `Enrollment` - User-course enrollments with progress
+- `Certificate` - Completion certificates
+- `ScormData` - SCORM runtime tracking data
+- `AuditLog` - System audit trail
+
+**Key Features:**
+- Foreign keys with cascade deletes
+- Indexes on frequently queried fields
+- Enum types for status and roles
+- JSON columns for flexible data storage
 
 ---
 
 ## 🎯 Milestone Overview
 
 1. **Milestone 1: Foundation & Authentication** (Week 1-2)
-2. **Milestone 2: Data Layer & Storage** (Week 2-3)
+2. **Milestone 2: Data Layer & Storage** ✅ **COMPLETED** (MySQL/Prisma)
 3. **Milestone 3: SCORM Processing & Upload** (Week 3-4)
 4. **Milestone 4: Course Player & Runtime** (Week 4-5)
 5. **Milestone 5: Enrollment & Assignment** (Week 5-6)
@@ -56,23 +200,24 @@ Establish secure authentication and user management foundation.
 
 #### 1.2 Authentication Implementation
 - [ ] Create authentication context/provider
-- [ ] Implement Firebase Auth integration
-- [ ] Build login page with Firebase Auth
+- [ ] Implement authentication provider integration
+- [ ] Build login page with authentication
 - [ ] Add SSO/OAuth support (Google, Microsoft)
-- [ ] Create protected route middleware
+- [ ] Create protected route middleware (Next.js middleware)
 - [ ] Implement session management
 - [ ] Add logout functionality
 - [ ] Create password reset flow
+- [ ] Integrate with Prisma User model
 
 #### 1.3 User Management
-- [ ] Create user collection in Firestore
+- [ ] User model already exists in Prisma schema ✅
 - [ ] Implement user creation on first login
 - [ ] Build user profile management
 - [ ] Add role-based access control (RBAC)
   - Admin: Full access
   - Learner: Course access only
 - [ ] Create user settings page
-- [ ] Implement user avatar upload
+- [ ] Implement user avatar upload (file storage needed)
 
 #### 1.4 Security Enhancements
 - [ ] Add CSRF protection
@@ -85,49 +230,54 @@ Establish secure authentication and user management foundation.
 - ✅ Users can log in with email/password or SSO
 - ✅ Protected routes enforce authentication
 - ✅ User roles are enforced
-- ✅ User profiles are managed in Firestore
+- ✅ User profiles are managed in MySQL database
 
 ### Dependencies
-- Firebase project created
+- Database configured (MySQL with Prisma) ✅
 - Domain configured for OAuth (if using SSO)
 
 ---
 
-## 🗄️ Milestone 2: Data Layer & Storage
+## 🗄️ Milestone 2: Data Layer & Storage ✅ **COMPLETED**
 
 ### Goal
-Replace mock data with real Firebase Firestore integration and file storage.
+Replace mock data with real MySQL/Prisma integration and file storage.
 
 ### Tasks
 
-#### 2.1 Firestore Schema Design
-- [ ] Design Firestore collections structure:
+#### 2.1 Database Schema Design ✅
+- [x] Prisma schema created with all models:
   ```
-  users/{userId}
-  courses/{courseId}
-  enrollments/{enrollmentId}
-  scormData/{scormDataId}
-  certificates/{certificateId}
-  auditLogs/{logId}
+  User
+  Course
+  Enrollment
+  Certificate
+  ScormData
+  AuditLog
   ```
-- [ ] Create Firestore security rules
-- [ ] Define indexes for queries
-- [ ] Create data migration scripts (if needed)
+- [x] Foreign keys and relationships defined
+- [x] Indexes created for optimal queries
+- [x] Enum types for status and roles
+- [x] SQL seed data dump created
 
-#### 2.2 Data Access Layer
-- [ ] Create `src/lib/firebase.ts` with Firestore helpers
-- [ ] Replace `src/lib/data.ts` mock functions with Firestore queries:
-  - [ ] `getUsers()` → Firestore query
-  - [ ] `getCourses()` → Firestore query
-  - [ ] `getEnrollments()` → Firestore query
-  - [ ] `getDashboardStats()` → Aggregate queries
-  - [ ] `getCompletionData()` → Time-series queries
-- [ ] Implement real-time listeners for dashboard updates
+#### 2.2 Data Access Layer ✅
+- [x] Created `src/lib/prisma.ts` with Prisma client singleton
+- [x] Replaced `src/lib/data.ts` mock functions with Prisma queries:
+  - [x] `getUsers()` → Prisma query ✅
+  - [x] `getCourses()` → Prisma query ✅
+  - [x] `getEnrollmentsForCourse()` → Prisma query ✅
+  - [x] `getEnrollment()` → Prisma query ✅
+  - [x] `getDashboardStats()` → Prisma aggregations ✅
+  - [x] `getCompletionData()` → Prisma time-series queries ✅
+  - [x] `getRecentActivity()` → Prisma query with relations ✅
+  - [x] `getCertificateForEnrollment()` → Prisma query ✅
 - [ ] Add pagination for large datasets
 - [ ] Create data validation layer (Zod schemas)
+- [ ] Add real-time updates (consider using Supabase or polling)
 
-#### 2.3 File Storage (Firebase Storage)
-- [ ] Set up Firebase Storage buckets
+#### 2.3 File Storage
+- [ ] Choose file storage solution (AWS S3, Cloudinary, or local storage)
+- [ ] Set up storage configuration
 - [ ] Create storage security rules
 - [ ] Implement file upload utility
 - [ ] Add file validation (size, type, SCORM structure)
@@ -142,13 +292,15 @@ Replace mock data with real Firebase Firestore integration and file storage.
 - [ ] Add error boundaries
 
 ### Deliverables
-- ✅ All data operations use Firestore
-- ✅ Files are stored in Firebase Storage
-- ✅ Real-time updates work on dashboard
-- ✅ Error handling is comprehensive
+- ✅ All data operations use Prisma/MySQL
+- ✅ Database schema is complete and ready
+- ✅ Seed data is available
+- ⚠️ File storage still needed
+- ⚠️ Real-time updates not implemented
 
 ### Dependencies
-- Milestone 1 complete (Firebase configured)
+- ✅ Database configured (MySQL with Prisma)
+- ⚠️ File storage solution needed
 
 ---
 
@@ -216,8 +368,9 @@ Enable real SCORM package upload, validation, and metadata extraction.
 - ✅ Courses are accessible for assignment
 
 ### Dependencies
-- Milestone 2 complete (Storage ready)
-- Genkit AI configured
+- Milestone 2 complete (Database ready) ✅
+- File storage solution needed (Milestone 2.3)
+- Genkit AI configured ✅
 
 ---
 
@@ -237,7 +390,7 @@ Build a functional SCORM player that tracks progress and saves state.
 - [ ] Implement SCORM 1.2 data model
 - [ ] Implement SCORM 2004 data model
 - [ ] Handle both versions dynamically
-- [ ] Create SCORM data persistence layer
+- [ ] Use Prisma ScormData model for persistence ✅
 - [ ] Implement data model validation
 
 #### 4.2 SCORM Player Component
@@ -376,8 +529,8 @@ Generate and manage completion certificates automatically.
 - [ ] Handle completion edge cases (partial completion, retakes)
 
 #### 6.3 Certificate Storage & Access
-- [ ] Store PDF in Firebase Storage
-- [ ] Create certificate record in Firestore
+- [ ] Store PDF in file storage (S3/Cloudinary/local)
+- [ ] Create certificate record in MySQL (Prisma Certificate model) ✅
 - [ ] Generate certificate page URL
 - [ ] Implement certificate verification endpoint
 - [ ] Add certificate download functionality
@@ -597,13 +750,15 @@ Prepare application for production deployment with monitoring, testing, and opti
 - [ ] Add course notes/bookmarks
 
 ### Technical Debt
-- [ ] Refactor mock data removal
+- [x] Refactor mock data removal ✅ (Completed in Milestone 2)
 - [ ] Optimize component re-renders
 - [ ] Improve TypeScript strictness
 - [ ] Add JSDoc comments
 - [ ] Standardize error handling
 - [ ] Create shared constants file
 - [ ] Refactor duplicate code
+- [ ] Generate and apply initial Prisma migration
+- [ ] Add database connection pooling configuration
 
 ---
 
@@ -634,7 +789,7 @@ Prepare application for production deployment with monitoring, testing, and opti
 | Milestone | Duration | Priority |
 |-----------|----------|----------|
 | Milestone 1: Foundation & Auth | 2 weeks | Critical |
-| Milestone 2: Data Layer | 1.5 weeks | Critical |
+| Milestone 2: Data Layer | ✅ **COMPLETED** | Critical |
 | Milestone 3: SCORM Processing | 2 weeks | Critical |
 | Milestone 4: Course Player | 2 weeks | Critical |
 | Milestone 5: Enrollment | 1.5 weeks | High |
@@ -642,7 +797,7 @@ Prepare application for production deployment with monitoring, testing, and opti
 | Milestone 7: Integrations | 1.5 weeks | Medium |
 | Milestone 8: Polish & Production | 2 weeks | High |
 
-**Total Estimated Time**: ~13.5 weeks (~3.5 months)
+**Total Estimated Time**: ~12 weeks (~3 months) (Milestone 2 completed)
 
 ---
 
@@ -662,10 +817,11 @@ Prepare application for production deployment with monitoring, testing, and opti
 
 ### High-Risk Areas
 1. **SCORM Compatibility**: Test with multiple SCORM packages early
-2. **Firebase Costs**: Monitor usage and set up billing alerts
+2. **Database Performance**: Monitor MySQL query performance, optimize indexes
 3. **Email Deliverability**: Use reputable email service, verify domains
 4. **Performance at Scale**: Load test with realistic data volumes
 5. **Security**: Regular security audits, penetration testing
+6. **File Storage Costs**: Monitor storage usage if using cloud storage
 
 ### Mitigation Strategies
 - Early prototyping of critical features
