@@ -6,8 +6,9 @@ import { Progress } from "@/components/ui/progress"
 import { CheckCircle, Award } from "lucide-react"
 import Link from "next/link"
 
-export default async function LearnPage({ params }: { params: { enrollmentId: string } }) {
-  const enrollment = await getEnrollment(params.enrollmentId)
+export default async function LearnPage({ params }: { params: Promise<{ enrollmentId: string }> }) {
+  const { enrollmentId } = await params
+  const enrollment = await getEnrollment(enrollmentId)
 
   if (!enrollment) {
     notFound()

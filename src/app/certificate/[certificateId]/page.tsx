@@ -4,8 +4,9 @@ import { getCertificateById, getEnrollment } from "@/lib/data"
 import { Download } from "lucide-react"
 import { notFound } from "next/navigation"
 
-export default async function CertificatePage({ params }: { params: { certificateId: string } }) {
-  const certificate = await getCertificateById(params.certificateId)
+export default async function CertificatePage({ params }: { params: Promise<{ certificateId: string }> }) {
+  const { certificateId } = await params
+  const certificate = await getCertificateById(certificateId)
   if (!certificate) notFound()
 
   const enrollment = await getEnrollment(certificate.enrollmentId)

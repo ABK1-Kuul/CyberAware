@@ -1,3 +1,5 @@
+"use client"
+
 import type { ReactNode } from "react"
 import { AppSidebar } from "@/components/app/app-sidebar"
 import { Header } from "@/components/app/header"
