@@ -1,7 +1,10 @@
+import { cache } from 'react'
 import type { User, Course, Enrollment, AuditLog, Certificate, EnrollmentStatus, JsonValue } from './types'
 import { subDays, format } from 'date-fns'
 import { prisma } from './prisma'
-import { DatabaseError } from './errors'
+import { DatabaseError, ValidationError } from './errors'
+import { logger } from './logger'
+import { DASHBOARD_CHART_DAYS, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from './constants'
 
 // Type guard for user role
 function isValidUserRole(role: string): role is 'admin' | 'learner' {
@@ -13,8 +16,6 @@ function mapUserRole(role: string): 'admin' | 'learner' {
   return isValidUserRole(role) ? role : 'learner'
 }
 
-// Helper function to map Prisma enum values to TypeScript types
-// Accepts the actual Prisma enum type (string union) for type safety
 function mapEnrollmentStatus(status: 'NotStarted' | 'InProgress' | 'Completed'): EnrollmentStatus {
   switch (status) {
     case 'NotStarted':
@@ -25,96 +26,6 @@ function mapEnrollmentStatus(status: 'NotStarted' | 'InProgress' | 'Completed'):
       return 'Completed'
     default:
       return 'Not Started'
-  }
-}
-
-// API-like functions using Prisma
-export async function getDashboardStats() {
-  try {
-    const totalUsers = await prisma.user.count({
-      where: { role: 'learner' }
-    })
-    const totalCourses = await prisma.course.count()
-    const completed = await prisma.enrollment.count({
-      where: { status: 'Completed' }
-    })
-    const inProgress = await prisma.enrollment.count({
-      where: { status: 'InProgress' }
-    })
-    return { totalUsers, totalCourses, completed, inProgress }
-  } catch (error) {
-    console.error('Database error in getDashboardStats:', error)
-    throw new DatabaseError('Failed to fetch dashboard statistics', error)
-  }
-}
-
-export async function getCompletionData() {
-  try {
-    const now = new Date()
-    const thirtyDaysAgo = subDays(now, 30)
-    
-    // Optimized: Single query to get all completed enrollments grouped by date
-    const completedData = await prisma.$queryRaw<Array<{ date: Date, count: bigint }>>`
-      SELECT 
-        DATE(completed_at) as date,
-        COUNT(*) as count
-      FROM enrollments
-      WHERE completed_at >= ${thirtyDaysAgo}
-        AND completed_at <= ${now}
-        AND status = 'Completed'
-      GROUP BY DATE(completed_at)
-      ORDER BY date ASC
-    `
-    
-    // Get all in-progress enrollments assigned in the last 30 days
-    const inProgressEnrollments = await prisma.enrollment.findMany({
-      where: {
-        assignedAt: { gte: thirtyDaysAgo },
-        status: 'InProgress',
-      },
-      select: {
-        assignedAt: true,
-        completedAt: true,
-      },
-    })
-    
-    // Build date map for completed enrollments
-    const completedMap = new Map<string, number>()
-    completedData.forEach((row) => {
-      const dateKey = format(new Date(row.date), 'MMM dd')
-      completedMap.set(dateKey, Number(row.count))
-    })
-    
-    // Build date map for in-progress enrollments
-    const inProgressMap = new Map<string, number>()
-    inProgressEnrollments.forEach((enrollment) => {
-      const assignedDate = new Date(enrollment.assignedAt)
-      const assignedDateKey = format(assignedDate, 'MMM dd')
-      
-      // Count as in-progress if not completed or completed after the assigned date
-      if (!enrollment.completedAt) {
-        const current = inProgressMap.get(assignedDateKey) || 0
-        inProgressMap.set(assignedDateKey, current + 1)
-      }
-    })
-    
-    // Build result array for all 30 days
-    const data: { date: string, Completed: number, 'In Progress': number }[] = []
-    for (let i = 29; i >= 0; i--) {
-      const date = subDays(now, i)
-      const formattedDate = format(date, 'MMM dd')
-      
-      data.push({
-        date: formattedDate,
-        'Completed': completedMap.get(formattedDate) || 0,
-        'In Progress': inProgressMap.get(formattedDate) || 0,
-      })
-    }
-    
-    return data
-  } catch (error) {
-    console.error('Database error in getCompletionData:', error)
-    throw new DatabaseError('Failed to fetch completion data', error)
   }
 }
 
@@ -159,7 +70,142 @@ type EnrollmentWithRelations = {
   course: PrismaCourse
 }
 
-export async function getRecentActivity(): Promise<AuditLog[]> {
+function requireNonEmptyId(value: string, name: string): void {
+  if (!value || typeof value !== 'string' || !value.trim()) {
+    throw new ValidationError(`${name} is required`, name)
+  }
+}
+
+function mapPrismaUserToUser(p: PrismaUser): User {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    role: mapUserRole(p.role),
+    team: p.team,
+    createdAt: p.createdAt.toISOString(),
+    avatarUrl: p.avatarUrl,
+  }
+}
+
+function mapPrismaCourseToCourse(p: PrismaCourse): Course {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    version: p.version,
+    scormPath: p.scormPath,
+    createdAt: p.createdAt.toISOString(),
+    enrollmentCount: p.enrollmentCount,
+  }
+}
+
+function mapEnrollmentWithRelationsToEnrollment(e: EnrollmentWithRelations): Enrollment {
+  return {
+    id: e.id,
+    userId: e.userId,
+    courseId: e.courseId,
+    status: mapEnrollmentStatus(e.status),
+    progress: e.progress,
+    assignedAt: e.assignedAt.toISOString(),
+    completedAt: e.completedAt?.toISOString() ?? null,
+    user: mapPrismaUserToUser(e.user),
+    course: mapPrismaCourseToCourse(e.course),
+  }
+}
+
+// API-like functions using Prisma (wrapped with React cache() for request-level deduplication)
+
+/** Fetches dashboard stats (learner count, course count, completed/in-progress enrollments). @throws {DatabaseError} */
+async function getDashboardStatsImpl() {
+  try {
+    const [totalUsers, totalCourses, completed, inProgress] = await Promise.all([
+      prisma.user.count({ where: { role: 'learner' } }),
+      prisma.course.count(),
+      prisma.enrollment.count({ where: { status: 'Completed' } }),
+      prisma.enrollment.count({ where: { status: 'InProgress' } }),
+    ])
+    return { totalUsers, totalCourses, completed, inProgress }
+  } catch (error) {
+    logger.error('Database error in getDashboardStats', { error })
+    throw new DatabaseError('Failed to fetch dashboard statistics', error)
+  }
+}
+export const getDashboardStats = cache(getDashboardStatsImpl)
+
+/** Fetches completion chart data for the last DASHBOARD_CHART_DAYS days. @throws {DatabaseError} */
+async function getCompletionDataImpl() {
+  try {
+    const now = new Date()
+    const startDate = subDays(now, DASHBOARD_CHART_DAYS)
+    
+    // Optimized: Single query to get all completed enrollments grouped by date
+    const completedData = await prisma.$queryRaw<Array<{ date: Date, count: bigint }>>`
+      SELECT 
+        DATE(completed_at) as date,
+        COUNT(*) as count
+      FROM enrollments
+      WHERE completed_at >= ${startDate}
+        AND completed_at <= ${now}
+        AND status = 'Completed'
+      GROUP BY DATE(completed_at)
+      ORDER BY date ASC
+    `
+    
+    // Get all in-progress enrollments assigned in the last 30 days
+    const inProgressEnrollments = await prisma.enrollment.findMany({
+      where: {
+        assignedAt: { gte: startDate },
+        status: 'InProgress',
+      },
+      select: {
+        assignedAt: true,
+        completedAt: true,
+      },
+    })
+    
+    // Build date map for completed enrollments
+    const completedMap = new Map<string, number>()
+    completedData.forEach((row) => {
+      const dateKey = format(new Date(row.date), 'MMM dd')
+      completedMap.set(dateKey, Number(row.count))
+    })
+    
+    // Build date map for in-progress enrollments
+    const inProgressMap = new Map<string, number>()
+    inProgressEnrollments.forEach((enrollment) => {
+      const assignedDate = new Date(enrollment.assignedAt)
+      const assignedDateKey = format(assignedDate, 'MMM dd')
+      
+      // Count as in-progress if not completed or completed after the assigned date
+      if (!enrollment.completedAt) {
+        const current = inProgressMap.get(assignedDateKey) || 0
+        inProgressMap.set(assignedDateKey, current + 1)
+      }
+    })
+    
+    const data: { date: string, Completed: number, 'In Progress': number }[] = []
+    for (let i = DASHBOARD_CHART_DAYS - 1; i >= 0; i--) {
+      const date = subDays(now, i)
+      const formattedDate = format(date, 'MMM dd')
+      
+      data.push({
+        date: formattedDate,
+        'Completed': completedMap.get(formattedDate) || 0,
+        'In Progress': inProgressMap.get(formattedDate) || 0,
+      })
+    }
+    
+    return data
+  } catch (error) {
+    logger.error('Database error in getCompletionData', { error })
+    throw new DatabaseError('Failed to fetch completion data', error)
+  }
+}
+export const getCompletionData = cache(getCompletionDataImpl)
+
+/** Fetches the most recent audit log entries (up to 5). @throws {DatabaseError} */
+async function getRecentActivityImpl(): Promise<AuditLog[]> {
   try {
     const logs = await prisma.auditLog.findMany({
       take: 5,
@@ -175,154 +221,108 @@ export async function getRecentActivity(): Promise<AuditLog[]> {
       action: log.action,
       details: log.details,
       createdAt: log.createdAt.toISOString(),
-      actor: log.actor ? {
-        id: log.actor.id,
-        name: log.actor.name,
-        email: log.actor.email,
-        role: mapUserRole(log.actor.role),
-        team: log.actor.team,
-        createdAt: log.actor.createdAt.toISOString(),
-        avatarUrl: log.actor.avatarUrl
-      } : null
+      actor: log.actor ? mapPrismaUserToUser(log.actor) : null
     }))
   } catch (error) {
-    console.error('Database error in getRecentActivity:', error)
+    logger.error('Database error in getRecentActivity', { error })
     throw new DatabaseError('Failed to fetch recent activity', error)
   }
 }
+export const getRecentActivity = cache(getRecentActivityImpl)
 
-export async function getCourses(): Promise<Course[]> {
+export type PaginatedCourses = { courses: Course[]; total: number; page: number; pageSize: number }
+export type PaginatedUsers = { users: User[]; total: number; page: number; pageSize: number }
+export type PaginatedEnrollments = { enrollments: Enrollment[]; total: number; page: number; pageSize: number }
+
+/** Paginated courses. @throws {DatabaseError} */
+async function getCoursesImpl(page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE): Promise<PaginatedCourses> {
   try {
-    const courses = await prisma.course.findMany({
-      orderBy: { createdAt: 'desc' }
-    }) as PrismaCourse[]
-    
-    return courses.map(course => ({
-      id: course.id,
-      title: course.title,
-      description: course.description,
-      version: course.version,
-      scormPath: course.scormPath,
-      createdAt: course.createdAt.toISOString(),
-      enrollmentCount: course.enrollmentCount
-    }))
+    const skip = (page - 1) * pageSize
+    const [rows, total] = await Promise.all([
+      prisma.course.findMany({
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' }
+      }) as Promise<PrismaCourse[]>,
+      prisma.course.count()
+    ])
+    const courses = rows.map(mapPrismaCourseToCourse)
+    return { courses, total, page, pageSize }
   } catch (error) {
-    console.error('Database error in getCourses:', error)
+    logger.error('Database error in getCourses', { error })
     throw new DatabaseError('Failed to fetch courses', error)
   }
 }
+export const getCourses = cache(getCoursesImpl)
 
-export async function getUsers(): Promise<User[]> {
+/** Paginated learners (role = learner). @throws {DatabaseError} */
+async function getUsersImpl(page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE): Promise<PaginatedUsers> {
   try {
-    const users = await prisma.user.findMany({
-      where: { role: 'learner' },
-      orderBy: { createdAt: 'desc' }
-    }) as PrismaUser[]
-    
-    return users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: mapUserRole(user.role),
-      team: user.team,
-      createdAt: user.createdAt.toISOString(),
-      avatarUrl: user.avatarUrl
-    }))
+    const skip = (page - 1) * pageSize
+    const [rows, total] = await Promise.all([
+      prisma.user.findMany({
+        skip,
+        take: pageSize,
+        where: { role: 'learner' },
+        orderBy: { createdAt: 'desc' }
+      }) as Promise<PrismaUser[]>,
+      prisma.user.count({ where: { role: 'learner' } })
+    ])
+    const users = rows.map(mapPrismaUserToUser)
+    return { users, total, page, pageSize }
   } catch (error) {
-    console.error('Database error in getUsers:', error)
+    logger.error('Database error in getUsers', { error })
     throw new DatabaseError('Failed to fetch users', error)
   }
 }
+export const getUsers = cache(getUsersImpl)
 
-export async function getEnrollmentsForCourse(courseId: string): Promise<Enrollment[]> {
+/** Paginated enrollments for a course. @throws {ValidationError} If courseId is empty. @throws {DatabaseError} */
+async function getEnrollmentsForCourseImpl(
+  courseId: string,
+  page = DEFAULT_PAGE,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<PaginatedEnrollments> {
+  requireNonEmptyId(courseId, 'courseId')
   try {
-    const enrollments = await prisma.enrollment.findMany({
-      where: { courseId },
-      include: {
-        user: true,
-        course: true
-      }
-    }) as EnrollmentWithRelations[]
-    
-    return enrollments.map(enrollment => ({
-      id: enrollment.id,
-      userId: enrollment.userId,
-      courseId: enrollment.courseId,
-      status: mapEnrollmentStatus(enrollment.status),
-      progress: enrollment.progress,
-      assignedAt: enrollment.assignedAt.toISOString(),
-      completedAt: enrollment.completedAt?.toISOString() ?? null,
-      user: {
-        id: enrollment.user.id,
-        name: enrollment.user.name,
-        email: enrollment.user.email,
-        role: mapUserRole(enrollment.user.role),
-        team: enrollment.user.team,
-        createdAt: enrollment.user.createdAt.toISOString(),
-        avatarUrl: enrollment.user.avatarUrl
-      },
-      course: {
-        id: enrollment.course.id,
-        title: enrollment.course.title,
-        description: enrollment.course.description,
-        version: enrollment.course.version,
-        scormPath: enrollment.course.scormPath,
-        createdAt: enrollment.course.createdAt.toISOString(),
-        enrollmentCount: enrollment.course.enrollmentCount
-      }
-    }))
+    const skip = (page - 1) * pageSize
+    const [rows, total] = await Promise.all([
+      prisma.enrollment.findMany({
+        skip,
+        take: pageSize,
+        where: { courseId },
+        include: { user: true, course: true },
+        orderBy: { assignedAt: 'desc' }
+      }) as Promise<EnrollmentWithRelations[]>,
+      prisma.enrollment.count({ where: { courseId } })
+    ])
+    const enrollments = rows.map(mapEnrollmentWithRelationsToEnrollment)
+    return { enrollments, total, page, pageSize }
   } catch (error) {
-    console.error('Database error in getEnrollmentsForCourse:', error)
+    logger.error('Database error in getEnrollmentsForCourse', { error })
     throw new DatabaseError('Failed to fetch enrollments for course', error)
   }
 }
+export const getEnrollmentsForCourse = cache(getEnrollmentsForCourseImpl)
 
+/** Fetches an enrollment by ID. Returns undefined if not found. @throws {ValidationError} If enrollmentId is empty. @throws {DatabaseError} */
 export async function getEnrollment(enrollmentId: string): Promise<Enrollment | undefined> {
+  requireNonEmptyId(enrollmentId, 'enrollmentId')
   try {
     const enrollment = await prisma.enrollment.findUnique({
       where: { id: enrollmentId },
-      include: {
-        user: true,
-        course: true
-      }
+      include: { user: true, course: true }
     })
-    
     if (!enrollment) return undefined
-    
-    return {
-      id: enrollment.id,
-      userId: enrollment.userId,
-      courseId: enrollment.courseId,
-      status: mapEnrollmentStatus(enrollment.status),
-      progress: enrollment.progress,
-      assignedAt: enrollment.assignedAt.toISOString(),
-      completedAt: enrollment.completedAt?.toISOString() ?? null,
-      user: {
-        id: enrollment.user.id,
-        name: enrollment.user.name,
-        email: enrollment.user.email,
-        role: mapUserRole(enrollment.user.role),
-        team: enrollment.user.team,
-        createdAt: enrollment.user.createdAt.toISOString(),
-        avatarUrl: enrollment.user.avatarUrl
-      },
-      course: {
-        id: enrollment.course.id,
-        title: enrollment.course.title,
-        description: enrollment.course.description,
-        version: enrollment.course.version,
-        scormPath: enrollment.course.scormPath,
-        createdAt: enrollment.course.createdAt.toISOString(),
-        enrollmentCount: enrollment.course.enrollmentCount
-      }
-    }
+    return mapEnrollmentWithRelationsToEnrollment(enrollment as EnrollmentWithRelations)
   } catch (error) {
-    console.error('Database error in getEnrollment:', error)
+    logger.error('Database error in getEnrollment', { error })
     throw new DatabaseError('Failed to fetch enrollment', error)
   }
 }
 
 export async function getCertificateForEnrollment(enrollmentId: string): Promise<Certificate | undefined> {
+  requireNonEmptyId(enrollmentId, 'enrollmentId')
   try {
     const certificate = await prisma.certificate.findUnique({
       where: { enrollmentId }
@@ -338,12 +338,14 @@ export async function getCertificateForEnrollment(enrollmentId: string): Promise
       uuid: certificate.uuid
     }
   } catch (error) {
-    console.error('Database error in getCertificateForEnrollment:', error)
+    logger.error('Database error in getCertificateForEnrollment', { error })
     throw new DatabaseError('Failed to fetch certificate for enrollment', error)
   }
 }
 
+/** Fetches a certificate by ID. Returns undefined if not found. @throws {ValidationError} If certificateId is empty. @throws {DatabaseError} */
 export async function getCertificateById(certificateId: string): Promise<Certificate | undefined> {
+  requireNonEmptyId(certificateId, 'certificateId')
   try {
     const certificate = await prisma.certificate.findUnique({
       where: { id: certificateId }
@@ -359,7 +361,7 @@ export async function getCertificateById(certificateId: string): Promise<Certifi
       uuid: certificate.uuid
     }
   } catch (error) {
-    console.error('Database error in getCertificateById:', error)
+    logger.error('Database error in getCertificateById', { error })
     throw new DatabaseError('Failed to fetch certificate by ID', error)
   }
 }
@@ -368,12 +370,17 @@ export async function getCertificateById(certificateId: string): Promise<Certifi
  * Create an enrollment with transaction support.
  * This ensures that if enrollment creation fails, no partial data is saved.
  * Also creates an audit log entry atomically.
+ * @throws {ValidationError} If userId, courseId, or actorId is empty
+ * @throws {DatabaseError} If enrollment already exists or DB operation fails
  */
 export async function createEnrollment(
   userId: string,
   courseId: string,
   actorId: string
 ): Promise<Enrollment> {
+  requireNonEmptyId(userId, 'userId')
+  requireNonEmptyId(courseId, 'courseId')
+  requireNonEmptyId(actorId, 'actorId')
   try {
     return await prisma.$transaction(async (tx) => {
       // Check if enrollment already exists
@@ -427,40 +434,13 @@ export async function createEnrollment(
         },
       })
 
-      // Map to return type
-      return {
-        id: enrollment.id,
-        userId: enrollment.userId,
-        courseId: enrollment.courseId,
-        status: mapEnrollmentStatus(enrollment.status),
-        progress: enrollment.progress,
-        assignedAt: enrollment.assignedAt.toISOString(),
-        completedAt: enrollment.completedAt?.toISOString() ?? null,
-        user: {
-          id: enrollment.user.id,
-          name: enrollment.user.name,
-          email: enrollment.user.email,
-          role: enrollment.user.role as 'admin' | 'learner',
-          team: enrollment.user.team,
-          createdAt: enrollment.user.createdAt.toISOString(),
-          avatarUrl: enrollment.user.avatarUrl,
-        },
-        course: {
-          id: enrollment.course.id,
-          title: enrollment.course.title,
-          description: enrollment.course.description,
-          version: enrollment.course.version,
-          scormPath: enrollment.course.scormPath,
-          createdAt: enrollment.course.createdAt.toISOString(),
-          enrollmentCount: enrollment.course.enrollmentCount,
-        },
-      }
+      return mapEnrollmentWithRelationsToEnrollment(enrollment as EnrollmentWithRelations)
     })
   } catch (error) {
-    if (error instanceof DatabaseError) {
+    if (error instanceof DatabaseError || error instanceof ValidationError) {
       throw error
     }
-    console.error('Database error in createEnrollment:', error)
+    logger.error('Database error in createEnrollment', { error })
     throw new DatabaseError('Failed to create enrollment', error)
   }
 }

@@ -63,6 +63,8 @@ model Enrollment {
   @@index([status])
   @@index([assignedAt])
   @@index([completedAt])
+  @@index([userId, status])
+  @@index([courseId, status])
   @@unique([userId, courseId])
 }
 

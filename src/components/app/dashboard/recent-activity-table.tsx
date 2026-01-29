@@ -21,6 +21,9 @@ export function RecentActivityTable({ data }: { data: AuditLog[] }) {
         <CardDescription>A log of recent activities in the system.</CardDescription>
       </CardHeader>
       <CardContent>
+        {data.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No recent activity.</p>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -58,6 +61,7 @@ export function RecentActivityTable({ data }: { data: AuditLog[] }) {
             ))}
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
   )
