@@ -33,13 +33,22 @@ export function RecentActivityTable({ data }: { data: AuditLog[] }) {
             {data.map((log) => (
               <TableRow key={log.id}>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={log.actor.avatarUrl} alt={log.actor.name} data-ai-hint="person portrait" />
-                      <AvatarFallback>{log.actor.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium">{log.actor.name}</span>
-                  </div>
+                  {log.actor ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={log.actor.avatarUrl} alt={log.actor.name} data-ai-hint="person portrait" />
+                        <AvatarFallback>{log.actor.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium">{log.actor.name}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback>?</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-muted-foreground">System</span>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>{getActionBadge(log.action)}</TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">

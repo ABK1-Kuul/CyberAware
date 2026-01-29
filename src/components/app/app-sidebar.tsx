@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Home, Settings, Shield, UploadCloud, Users } from "lucide-react"
+import { BookOpen, Home, Settings, UploadCloud, Users } from "lucide-react"
 import {
   SidebarHeader,
   SidebarContent,

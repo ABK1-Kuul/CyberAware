@@ -1,3 +1,11 @@
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonValue }
+  | JsonValue[]
+
 export interface User {
   id: string;
   name: string;
@@ -35,7 +43,7 @@ export interface Enrollment {
 export interface ScormData {
   id: string;
   enrollmentId: string;
-  cmiData: Record<string, any>;
+  cmiData: JsonValue;
   lastLocation: string;
 }
 
@@ -49,9 +57,9 @@ export interface Certificate {
 
 export interface AuditLog {
   id: string;
-  actorId: string;
+  actorId: string | null;
   action: string;
-  details: Record<string, any>;
+  details: JsonValue;
   createdAt: string;
-  actor: User;
+  actor: User | null;
 }

@@ -93,12 +93,12 @@ model Certificate {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  actorId   String   @map("actor_id")
+  actorId   String?  @map("actor_id")
   action    String
   details   Json     @db.Json
   createdAt DateTime @default(now()) @map("created_at")
 
-  actor User @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
   @@index([actorId])
