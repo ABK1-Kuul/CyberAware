@@ -1,8 +1,6 @@
 import { getCourses, getUsers } from "@/lib/data"
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import CourseTable from "@/components/app/courses/course-table"
-import UploadCourseDialog from "@/components/app/courses/upload-course-dialog"
-import { PaginationLink } from "@/components/ui/pagination-link"
+import { CoursesSection } from "@/components/app/courses/courses-section"
 
 const ASSIGN_DROPDOWN_USER_LIMIT = 500
 
@@ -21,19 +19,14 @@ export default async function CoursesPage({
   ])
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-headline">Courses</h1>
-        <UploadCourseDialog />
-      </div>
-      <CourseTable courses={coursesData.courses} users={usersData.users} />
-      <PaginationLink
-        basePath="/courses"
-        page={coursesData.page}
-        pageSize={coursesData.pageSize}
-        total={coursesData.total}
-        className="mt-2"
-      />
-    </div>
+    <CoursesSection
+      initialCourses={coursesData.courses}
+      users={usersData.users}
+      pagination={{
+        total: coursesData.total,
+        page: coursesData.page,
+        pageSize: coursesData.pageSize,
+      }}
+    />
   )
 }

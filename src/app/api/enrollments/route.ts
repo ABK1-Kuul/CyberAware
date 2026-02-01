@@ -4,6 +4,8 @@ import { createEnrollment } from '@/lib/data'
 import { prisma } from '@/lib/prisma'
 import { DatabaseError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
+import { logApiRequest } from '@/lib/request-logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 const bodySchema = z.object({
   userId: z.string().min(1, 'userId is required'),
@@ -11,6 +13,14 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: Request) {
+  logApiRequest(request)
+  const limit = rateLimit(request, { keyPrefix: 'enrollments:post', limit: 60 })
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many enrollment requests.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
   try {
     const body = await request.json()
     const parsed = bodySchema.safeParse(body)

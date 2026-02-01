@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { logApiRequest } from '@/lib/request-logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 const ACCEPTED = ['.zip']
 
 export async function POST(request: Request) {
+  logApiRequest(request)
+  const limit = rateLimit(request, { keyPrefix: 'courses:upload', limit: 20 })
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many upload attempts. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
   try {
     const formData = await request.formData()
     const file = formData.get('file')

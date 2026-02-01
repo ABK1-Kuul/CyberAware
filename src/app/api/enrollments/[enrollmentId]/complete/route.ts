@@ -2,11 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { clampProgress } from '@/lib/constants'
+import { logApiRequest } from '@/lib/request-logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ enrollmentId: string }> }
 ) {
+  logApiRequest(_request)
+  const limit = rateLimit(_request, { keyPrefix: 'enrollments:complete', limit: 60 })
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many completion requests.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
   try {
     const { enrollmentId } = await params
     if (!enrollmentId) {

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { env } from '@/lib/env'
 import { logger } from '@/lib/logger'
+import { logApiRequest } from '@/lib/request-logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 const webhookPayloadSchema = z.object({
   email: z.string().email(),
@@ -21,6 +23,14 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
 }
 
 export async function POST(request: Request) {
+  logApiRequest(request)
+  const limit = rateLimit(request, { keyPrefix: 'gophish:webhook', limit: 120 })
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many webhook requests.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
   try {
     const signature = request.headers.get('x-gophish-signature')
     if (!signature) {

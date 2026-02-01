@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { LearnPageActions } from "@/components/app/learn/learn-page-actions"
+import { ScormPlayer } from "@/components/app/learn/scorm-player"
 
 export default async function LearnPage({ params }: { params: Promise<{ enrollmentId: string }> }) {
   const { enrollmentId } = await params
@@ -23,8 +24,17 @@ export default async function LearnPage({ params }: { params: Promise<{ enrollme
           <CardDescription>{enrollment.course.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="aspect-video bg-muted rounded-lg flex items-center justify-center mb-4">
-            <p className="text-muted-foreground">SCORM content placeholder — player coming in Milestone 4.</p>
+          <div className="mb-4">
+            {enrollment.course.scormPath ? (
+              <ScormPlayer
+                enrollmentId={enrollment.id}
+                scormPath={enrollment.course.scormPath}
+              />
+            ) : (
+              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+                <p className="text-muted-foreground">SCORM content is not available for this course.</p>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">{enrollment.progress}%</span>

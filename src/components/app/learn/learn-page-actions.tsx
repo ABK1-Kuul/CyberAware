@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Award } from "lucide-react"
 import type { Enrollment, Certificate } from "@/lib/types"
+import { UI_MESSAGES } from "@/lib/ui-messages"
 
 export function LearnPageActions({
   enrollment,
@@ -41,12 +42,12 @@ export function LearnPageActions({
     return certificate ? (
       <Link href={`/certificate/${certificate.id}`}>
         <Button>
-          <Award className="mr-2 h-4 w-4" /> View Certificate
+          <Award className="mr-2 h-4 w-4" /> {UI_MESSAGES.learnActions.viewCertificate}
         </Button>
       </Link>
     ) : (
       <Button disabled>
-        <Award className="mr-2 h-4 w-4" /> Certificate Pending
+        <Award className="mr-2 h-4 w-4" /> {UI_MESSAGES.learnActions.certificatePending}
       </Button>
     )
   }
@@ -54,7 +55,7 @@ export function LearnPageActions({
   return (
     <Button onClick={handleMarkComplete} disabled={completing}>
       <CheckCircle className="mr-2 h-4 w-4" />
-      {completing ? "Marking…" : "Mark as Complete"}
+      {completing ? UI_MESSAGES.learnActions.markingComplete : UI_MESSAGES.learnActions.markComplete}
     </Button>
   )
 }

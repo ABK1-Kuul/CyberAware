@@ -45,6 +45,14 @@ export interface ScormData {
   enrollmentId: string;
   cmiData: JsonValue;
   lastLocation: string;
+  completionStatus?: string | null;
+  successStatus?: string | null;
+  scoreRaw?: number | null;
+  scoreMin?: number | null;
+  scoreMax?: number | null;
+  totalTimeSeconds?: number | null;
+  sessionTimeSeconds?: number | null;
+  lastCommitAt?: string | null;
 }
 
 export interface Certificate {

@@ -18,13 +18,22 @@ model User {
   team      String
   createdAt DateTime @default(now()) @map("created_at")
   avatarUrl String   @map("avatar_url")
+  ssoId     String?  @unique @map("sso_id")
+  magicToken String? @unique @map("magic_token")
+  magicTokenPinnedIp String? @map("magic_token_pinned_ip")
+  magicTokenPinnedUserAgent String? @map("magic_token_pinned_user_agent")
+  magicTokenPinnedAt DateTime? @map("magic_token_pinned_at")
 
   enrollments Enrollment[]
   auditLogs   AuditLog[]
+  activityLogs ActivityLog[]
+  courseSessions CourseSession[]
 
   @@map("users")
   @@index([email])
   @@index([role])
+  @@index([ssoId])
+  @@index([magicToken])
 }
 
 model Course {
@@ -37,6 +46,7 @@ model Course {
   enrollmentCount Int     @default(0) @map("enrollment_count")
 
   enrollments Enrollment[]
+  courseSessions CourseSession[]
 
   @@map("courses")
   @@index([createdAt])
@@ -56,6 +66,7 @@ model Enrollment {
 
   scormData   ScormData?
   certificate Certificate?
+  courseSessions CourseSession[]
 
   @@map("enrollments")
   @@index([userId])
@@ -68,11 +79,53 @@ model Enrollment {
   @@unique([userId, courseId])
 }
 
+model CourseSession {
+  id            String   @id @default(cuid())
+  enrollmentId  String   @map("enrollment_id")
+  userId        String   @map("user_id")
+  courseId      String   @map("course_id")
+  contentType   CourseContentType @map("content_type")
+  suspendData   String?  @db.Text @map("suspend_data")
+  h5pState      Json?    @db.Json @map("h5p_state")
+  lessonLocation String? @map("lesson_location")
+  status        CourseSessionStatus @default(NotStarted)
+  score         Float?   @map("score")
+  certificateSent Boolean @default(false) @map("certificate_sent")
+  pinnedIp      String?  @map("pinned_ip")
+  pinnedUserAgent String? @map("pinned_user_agent")
+  pinnedAt      DateTime? @map("pinned_at")
+  startedAt     DateTime? @map("started_at")
+  lastActivityAt DateTime? @map("last_activity_at")
+  completedAt   DateTime? @map("completed_at")
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_sessions")
+  @@index([enrollmentId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([contentType])
+  @@index([status])
+  @@index([lastActivityAt])
+  @@index([certificateSent])
+  @@unique([enrollmentId, contentType])
+}
+
 model ScormData {
   id           String   @id @default(cuid())
   enrollmentId String   @unique @map("enrollment_id")
   cmiData      Json     @map("cmi_data") @db.Json
-  lastLocation String   @map("last_location")
+  lastLocation String   @default("") @map("last_location")
+  completionStatus String? @map("completion_status")
+  successStatus String? @map("success_status")
+  scoreRaw     Float?   @map("score_raw")
+  scoreMin     Float?   @map("score_min")
+  scoreMax     Float?   @map("score_max")
+  totalTimeSeconds Int? @map("total_time_seconds")
+  sessionTimeSeconds Int? @map("session_time_seconds")
+  lastCommitAt DateTime? @map("last_commit_at")
 
   enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
@@ -108,6 +161,21 @@ model AuditLog {
   @@index([action])
 }
 
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  action    String
+  metadata  Json?    @db.Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("activity_logs")
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
 enum UserRole {
   admin
   learner
@@ -117,4 +185,17 @@ enum EnrollmentStatus {
   NotStarted
   InProgress
   Completed
+}
+
+enum CourseContentType {
+  SCORM
+  H5P
+}
+
+enum CourseSessionStatus {
+  NotStarted
+  InProgress
+  Completed
+  Passed
+  Failed
 }

@@ -41,8 +41,19 @@ import {
     SelectValue,
   } from "@/components/ui/select"
 import { useToast } from '@/hooks/use-toast'
+import { UI_MESSAGES } from '@/lib/ui-messages'
 
-function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: string }) {
+function AssignLearnerDialog({
+  users,
+  courseId,
+  onOptimistic,
+  onRevert,
+}: {
+  users: User[]
+  courseId: string
+  onOptimistic?: (courseId: string) => void
+  onRevert?: (courseId: string) => void
+}) {
     const { toast } = useToast()
     const router = useRouter()
     const [open, setOpen] = useState(false)
@@ -52,13 +63,14 @@ function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: str
     const handleAssign = async () => {
         if (!selectedUserId) {
             toast({
-                title: "No learner selected",
-                description: "Please select a learner to enroll.",
+                title: UI_MESSAGES.assignment.noLearnerTitle,
+                description: UI_MESSAGES.assignment.noLearnerDescription,
                 variant: "destructive",
             })
             return
         }
         setAssigning(true)
+        onOptimistic?.(courseId)
         try {
             const res = await fetch("/api/enrollments", {
                 method: "POST",
@@ -67,24 +79,26 @@ function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: str
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
+                onRevert?.(courseId)
                 toast({
-                    title: "Assignment failed",
-                    description: data.error ?? "Could not create enrollment.",
+                    title: UI_MESSAGES.assignment.assignFailedTitle,
+                    description: data.error ?? UI_MESSAGES.assignment.assignFailedFallback,
                     variant: "destructive",
                 })
                 return
             }
             toast({
-                title: "Learner assigned",
-                description: "The learner has been enrolled in the course.",
+                title: UI_MESSAGES.assignment.assignSuccessTitle,
+                description: UI_MESSAGES.assignment.assignSuccessDescription,
             })
             setOpen(false)
             setSelectedUserId("")
             router.refresh()
         } catch {
+            onRevert?.(courseId)
             toast({
-                title: "Assignment failed",
-                description: "A network error occurred. Please try again.",
+                title: UI_MESSAGES.assignment.assignFailedTitle,
+                description: UI_MESSAGES.assignment.networkError,
                 variant: "destructive",
             })
         } finally {
@@ -95,19 +109,17 @@ function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: str
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm"><UserPlus className="mr-2 h-4 w-4"/>Assign Learner</Button>
+                <Button variant="outline" size="sm"><UserPlus className="mr-2 h-4 w-4"/>{UI_MESSAGES.assignment.assignTrigger}</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Assign Learner</DialogTitle>
-                    <DialogDescription>
-                        Select a learner to enroll them in this course.
-                    </DialogDescription>
+                    <DialogTitle>{UI_MESSAGES.assignment.dialogTitle}</DialogTitle>
+                    <DialogDescription>{UI_MESSAGES.assignment.dialogDescription}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={assigning}>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select a learner" />
+                            <SelectValue placeholder={UI_MESSAGES.assignment.selectPlaceholder} />
                         </SelectTrigger>
                         <SelectContent>
                             {users.map(user => (
@@ -118,7 +130,7 @@ function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: str
                 </div>
                 <DialogFooter>
                     <Button onClick={handleAssign} disabled={assigning}>
-                        {assigning ? "Assigning…" : "Assign"}
+                        {assigning ? UI_MESSAGES.assignment.assigningButton : UI_MESSAGES.assignment.assignButton}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -129,14 +141,24 @@ function AssignLearnerDialog({ users, courseId }: { users: User[]; courseId: str
 
 import { EmptyState } from "@/components/ui/empty-state"
 
-export default function CourseTable({ courses, users }: { courses: Course[], users: User[] }) {
+export default function CourseTable({
+  courses,
+  users,
+  onEnrollmentOptimistic,
+  onEnrollmentRevert,
+}: {
+  courses: Course[]
+  users: User[]
+  onEnrollmentOptimistic?: (courseId: string) => void
+  onEnrollmentRevert?: (courseId: string) => void
+}) {
   return (
     <Card>
       <CardContent>
         {courses.length === 0 ? (
           <EmptyState
-            message="No courses yet"
-            description="Upload a SCORM package to create your first course."
+            message={UI_MESSAGES.emptyStates.noCoursesTitle}
+            description={UI_MESSAGES.emptyStates.noCoursesDescription}
           />
         ) : (
         <Table>
@@ -160,7 +182,12 @@ export default function CourseTable({ courses, users }: { courses: Course[], use
                 <TableCell>{format(new Date(course.createdAt), "MMMM d, yyyy")}</TableCell>
                 <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                        <AssignLearnerDialog users={users} courseId={course.id} />
+                        <AssignLearnerDialog
+                          users={users}
+                          courseId={course.id}
+                          onOptimistic={onEnrollmentOptimistic}
+                          onRevert={onEnrollmentRevert}
+                        />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">

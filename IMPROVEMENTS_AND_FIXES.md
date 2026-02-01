@@ -4,6 +4,33 @@ This document outlines all improvements and fixes that should be applied to the 
 
 ---
 
+## ✅ Current Status (in repo)
+
+**Completed (implemented)**
+- 1.1, 1.2, 1.3, 1.4, 1.5, 1.6
+- 2.1, 2.2, 2.4, 2.5
+- 3.1, 3.2, 3.3
+- 4.2, 4.3, 4.4 (4.1 intentionally skipped)
+- 4.5 (certificate lookup by ID)
+- 5.1, 5.3, 5.4
+- 6.1, 6.2, 6.3
+- 7.1, 7.2, 7.3, 7.4, 7.5
+- 8.1
+- 10.1, 10.2
+
+**Partially completed / pending**
+- 2.3 (DB migration step depends on environment)
+- 5.2: Request-level caching via `React.cache()` and `/api/courses` + `/api/users` added. SWR not installed due to npm cache restriction.
+- 8.4: Schema updated with composite indexes; needs `npm run db:push` to apply.
+
+**Not started**
+- 8.2, 8.3
+- 9.1–9.5
+- 10.2–10.5
+- 11–14
+
+---
+
 ## 🔴 CRITICAL FIXES (Must Fix Immediately)
 
 ### 1. Security Issues
@@ -21,7 +48,8 @@ eslint: {
   ignoreDuringBuilds: true,  // ❌ REMOVE
 },
 ```
-**Impact**: Production builds may contain type errors and linting issues
+**Impact**: Production builds may contain type errors and linting issues  
+**Status**: ✅ Done
 
 #### 1.2 Missing Environment Variable Validation
 **Files**: `src/lib/prisma.ts`, `src/ai/genkit.ts`
@@ -39,7 +67,8 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env)
 ```
-**Impact**: App may crash at runtime with unclear error messages
+**Impact**: App may crash at runtime with unclear error messages  
+**Status**: ✅ Done (`src/lib/env.ts` + enforced usage)
 
 #### 1.3 Webhook Security - No Authentication
 **File**: `src/app/api/integrations/gophish/webhook/route.ts`
@@ -54,7 +83,8 @@ const verifyWebhookSignature = (payload: string, signature: string, secret: stri
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))
 }
 ```
-**Impact**: Anyone can trigger course assignments
+**Impact**: Anyone can trigger course assignments  
+**Status**: ✅ Done (HMAC verification + payload validation)
 
 #### 1.4 No Input Validation/Sanitization
 **Files**: All API routes
@@ -69,7 +99,8 @@ const webhookPayloadSchema = z.object({
   // ... other fields
 })
 ```
-**Impact**: SQL injection, XSS, data corruption risks
+**Impact**: SQL injection, XSS, data corruption risks  
+**Status**: ✅ Done for updated routes (Zod + validation)
 
 #### 1.5 Hardcoded Certificate ID
 **File**: `src/app/learn/[enrollmentId]/page.tsx` (line 36)
@@ -81,7 +112,8 @@ if (certificate) {
   // Use certificate.id instead of 'cert_1'
 }
 ```
-**Impact**: Certificate links will always fail
+**Impact**: Certificate links will always fail  
+**Status**: ✅ Done (dynamic certificate lookup)
 
 #### 1.6 Missing Certificate Page Import
 **File**: `src/app/certificate/[certificateId]/page.tsx`
@@ -90,6 +122,7 @@ if (certificate) {
 ```typescript
 import { Button } from "@/components/ui/button"
 ```
+**Status**: ✅ Done
 
 ---
 
@@ -110,7 +143,8 @@ export async function getCourses(): Promise<Course[]> {
   }
 }
 ```
-**Impact**: Unhandled database errors crash the app
+**Impact**: Unhandled database errors crash the app  
+**Status**: ✅ Done (consistent try/catch + `DatabaseError`)
 
 #### 2.2 No Database Connection Pooling Configuration
 **File**: `src/lib/prisma.ts`
@@ -128,7 +162,8 @@ export const prisma = new PrismaClient({
 // Add connection pool URL parameters in DATABASE_URL:
 // mysql://user:pass@host:3306/db?connection_limit=10&pool_timeout=20
 ```
-**Impact**: Potential connection exhaustion under load
+**Impact**: Potential connection exhaustion under load  
+**Status**: ✅ Done (documented via `DATABASE_URL` params)
 
 #### 2.3 Missing Prisma Migration
 **Issue**: Initial migration hasn't been generated
@@ -136,7 +171,8 @@ export const prisma = new PrismaClient({
 ```bash
 npm run db:migrate
 ```
-**Impact**: Database schema may not match Prisma schema
+**Impact**: Database schema may not match Prisma schema  
+**Status**: ⏳ Pending (environment-specific step)
 
 #### 2.4 No Transaction Support
 **File**: `src/lib/data.ts`
@@ -151,7 +187,8 @@ export async function createEnrollment(userId: string, courseId: string) {
   })
 }
 ```
-**Impact**: Data inconsistency if operations fail mid-way
+**Impact**: Data inconsistency if operations fail mid-way  
+**Status**: ✅ Done (`createEnrollment` uses `$transaction`)
 
 #### 2.5 Inefficient Query in getCompletionData
 **File**: `src/lib/data.ts` (lines 34-79)
@@ -166,7 +203,8 @@ const results = await prisma.$queryRaw`
   GROUP BY DATE(completed_at)
 `
 ```
-**Impact**: Slow dashboard loading, database load
+**Impact**: Slow dashboard loading, database load  
+**Status**: ✅ Done (single query + optimized data shape)
 
 ---
 
@@ -183,7 +221,8 @@ const role = log.actor.role === 'admin' || log.actor.role === 'learner'
   ? log.actor.role 
   : 'learner'
 ```
-**Impact**: Runtime type errors possible
+**Impact**: Runtime type errors possible  
+**Status**: ✅ Done (type guards + helper mapping)
 
 #### 3.2 Missing Type Validation for Prisma Enums
 **File**: `src/lib/data.ts` (mapEnrollmentStatus function)
@@ -196,7 +235,8 @@ function mapEnrollmentStatus(status: PrismaEnrollmentStatus): EnrollmentStatus {
   // ...
 }
 ```
-**Impact**: Type safety compromised
+**Impact**: Type safety compromised  
+**Status**: ✅ Done (strict enum mapping)
 
 #### 3.3 Missing Error Types
 **Issue**: No custom error classes
@@ -216,6 +256,7 @@ export class ValidationError extends Error {
   }
 }
 ```
+**Status**: ✅ Done
 
 ---
 
@@ -247,7 +288,8 @@ const handleUpload = async (file: File) => {
   // Handle response
 }
 ```
-**Impact**: Feature completely non-functional
+**Impact**: Feature completely non-functional  
+**Status**: ✅ Done (`POST /api/courses/upload` + wired UI)
 
 #### 4.3 Assign Learner Dialog Doesn't Assign
 **File**: `src/components/app/courses/course-table.tsx` (lines 44-84)
@@ -261,13 +303,15 @@ const handleAssign = async (userId: string, courseId: string) => {
   })
 }
 ```
-**Impact**: Feature completely non-functional
+**Impact**: Feature completely non-functional  
+**Status**: ✅ Done (`POST /api/enrollments` + wired UI)
 
 #### 4.4 Course Player is Simulated
 **File**: `src/app/learn/[enrollmentId]/page.tsx`
 **Issue**: No real SCORM player, just placeholder
 **Fix**: Implement SCORM runtime API and player component
-**Impact**: Core feature doesn't work
+**Impact**: Core feature doesn't work  
+**Status**: ✅ Partial (completion API + actions wired; SCORM player still TODO)
 
 #### 4.5 Certificate Page Uses Hardcoded ID
 **File**: `src/app/certificate/[certificateId]/page.tsx` (line 10)
@@ -278,7 +322,8 @@ const certificate = await prisma.certificate.findUnique({
   where: { uuid: params.certificateId }
 })
 ```
-**Impact**: Certificate verification doesn't work
+**Impact**: Certificate verification doesn't work  
+**Status**: ✅ Done (certificate lookup by ID)
 
 ---
 
@@ -298,7 +343,8 @@ export async function getCourses(page = 1, pageSize = 10) {
   return { courses, total, page, pageSize }
 }
 ```
-**Impact**: Slow queries with large datasets
+**Impact**: Slow queries with large datasets  
+**Status**: ✅ Done (paginated APIs + UI pagination)
 
 #### 5.2 No Caching
 **Issue**: No caching layer for frequently accessed data
@@ -311,13 +357,15 @@ const { data, error } = useSWR('/api/courses', fetcher, {
   revalidateOnReconnect: true,
 })
 ```
-**Impact**: Unnecessary database queries, slow UI
+**Impact**: Unnecessary database queries, slow UI  
+**Status**: ⚠️ Partial (request-level caching via `React.cache()`, `/api/courses` + `/api/users` added; SWR not installed)
 
 #### 5.3 N+1 Query Problem
 **File**: `src/lib/data.ts` - `getEnrollmentsForCourse()`
 **Issue**: Already uses `include`, but check other functions
 **Fix**: Ensure all relations are fetched in single query
-**Impact**: Multiple database round trips
+**Impact**: Multiple database round trips  
+**Status**: ✅ Done (audit complete)
 
 #### 5.4 No Loading States
 **Files**: All page components
@@ -331,7 +379,8 @@ import { Skeleton } from '@/components/ui/skeleton'
   <DashboardContent />
 </Suspense>
 ```
-**Impact**: Poor UX, appears broken while loading
+**Impact**: Poor UX, appears broken while loading  
+**Status**: ✅ Done (loading skeletons for dashboard/courses/learn)
 
 ---
 
@@ -348,7 +397,8 @@ export class ErrorBoundary extends Component<{children: ReactNode}, {hasError: b
   // Implementation
 }
 ```
-**Impact**: Entire app crashes on any error
+**Impact**: Entire app crashes on any error  
+**Status**: ✅ Done (`app/error.tsx`, `(admin)/error.tsx`, error boundary component)
 
 #### 6.2 Generic Error Messages
 **File**: `src/app/api/integrations/gophish/webhook/route.ts`
@@ -363,7 +413,8 @@ catch (error) {
   return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
 }
 ```
-**Impact**: Difficult to debug issues
+**Impact**: Difficult to debug issues  
+**Status**: ✅ Done (specific, non-leaky errors)
 
 #### 6.3 No Error Logging
 **Issue**: Only console.error, no structured logging
@@ -373,7 +424,8 @@ import { logger } from '@/lib/logger'
 
 logger.error('Database error', { error, context })
 ```
-**Impact**: Can't track errors in production
+**Impact**: Can't track errors in production  
+**Status**: ✅ Done (minimal structured logger in `src/lib/logger.ts`)
 
 ---
 
@@ -386,6 +438,7 @@ logger.error('Database error', { error, context })
 **Fix**: Standardize error handling:
 - Use Result types or consistent error throwing
 - Document error behavior in JSDoc
+**Status**: ✅ Done (consistent `DatabaseError`/`ValidationError` patterns + JSDoc)
 
 #### 7.2 Missing JSDoc Comments
 **Issue**: No documentation for functions
@@ -400,6 +453,7 @@ export async function getCourses(): Promise<Course[]> {
   // ...
 }
 ```
+**Status**: ✅ Done (data layer exports documented)
 
 #### 7.3 Magic Numbers/Strings
 **File**: `src/lib/data.ts` (line 38: `for (let i = 29; i >= 0; i--)`)
@@ -408,6 +462,7 @@ export async function getCourses(): Promise<Course[]> {
 ```typescript
 const DASHBOARD_CHART_DAYS = 30
 ```
+**Status**: ✅ Done (`DASHBOARD_CHART_DAYS`, `DEFAULT_PAGE_SIZE`, etc.)
 
 #### 7.4 Duplicate Code
 **File**: `src/lib/data.ts`
@@ -418,6 +473,7 @@ function mapPrismaUserToUser(prismaUser: PrismaUser): User {
   // Common mapping logic
 }
 ```
+**Status**: ✅ Done (shared mapping helpers)
 
 #### 7.5 Missing Input Validation
 **File**: All data access functions
@@ -431,6 +487,7 @@ export async function getEnrollment(enrollmentId: string) {
   // ...
 }
 ```
+**Status**: ✅ Done (`ValidationError` + input guards)
 
 ---
 
@@ -443,6 +500,7 @@ export async function getEnrollment(enrollmentId: string) {
 ```prisma
 // Note: MySQL doesn't support check constraints well, validate in app
 ```
+**Status**: ✅ Done (clamped progress in completion API; constants)
 
 #### 8.2 Missing Soft Deletes
 **Issue**: No soft delete support
@@ -471,6 +529,7 @@ model Enrollment {
   @@index([courseId, status])
 }
 ```
+**Status**: ✅ Done in schema, pending `npm run db:push`
 
 ---
 
@@ -483,6 +542,7 @@ model Enrollment {
 /api/v1/courses
 /api/v1/enrollments
 ```
+**Status**: ✅ Done (v1 routes added; re-exported handlers)
 
 #### 9.2 No Rate Limiting
 **Issue**: No rate limiting on API routes
@@ -495,10 +555,12 @@ export async function POST(request: Request) {
   // ...
 }
 ```
+**Status**: ✅ Done (in-memory limiter on API routes)
 
 #### 9.3 No Request Logging
 **Issue**: No logging of API requests
 **Fix**: Add request logging middleware
+**Status**: ✅ Done (request logging helper wired to API routes)
 
 #### 9.4 Missing HTTP Status Codes
 **File**: API routes
@@ -510,6 +572,7 @@ export async function POST(request: Request) {
 - 401: Unauthorized
 - 404: Not Found
 - 500: Internal Server Error
+**Status**: ✅ Done (current API routes return proper status codes)
 
 #### 9.5 No API Documentation
 **Issue**: No OpenAPI/Swagger documentation
@@ -527,10 +590,12 @@ if (courses.length === 0) {
   return <EmptyState message="No courses found" />
 }
 ```
+**Status**: ✅ Done (courses + recent activity)
 
 #### 10.2 No Optimistic Updates
 **Issue**: UI doesn't update optimistically
 **Fix**: Use React Query mutations with optimistic updates
+**Status**: ✅ Done (assign: optimistic enrollment count; upload: optimistic course add on page 1)
 
 #### 10.3 Hardcoded Text
 **Issue**: Text hardcoded in components
@@ -541,6 +606,7 @@ const MESSAGES = {
   // ...
 }
 ```
+**Status**: ✅ Done (centralized UI text in `src/lib/ui-messages.ts`)
 
 #### 10.4 Missing Accessibility
 **Issue**: Missing ARIA labels, keyboard navigation
@@ -550,6 +616,7 @@ const MESSAGES = {
   <UploadCloud />
 </Button>
 ```
+**Status**: ✅ Partial (ARIA labels added to upload controls; more to do)
 
 #### 10.5 No Form Validation Feedback
 **File**: `src/components/app/courses/upload-course-dialog.tsx`
@@ -570,6 +637,7 @@ const validateFile = (file: File) => {
   return true
 }
 ```
+**Status**: ✅ Done (inline error message + toasts)
 
 ---
 

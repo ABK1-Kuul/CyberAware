@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import type { AuditLog } from "@/lib/types"
 import { formatDistanceToNow } from 'date-fns'
+import { UI_MESSAGES } from "@/lib/ui-messages"
 
 export function RecentActivityTable({ data }: { data: AuditLog[] }) {
   const getActionBadge = (action: string) => {
@@ -22,7 +23,7 @@ export function RecentActivityTable({ data }: { data: AuditLog[] }) {
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No recent activity.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{UI_MESSAGES.emptyStates.noRecentActivity}</p>
         ) : (
         <Table>
           <TableHeader>
