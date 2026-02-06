@@ -1,0 +1,8 @@
+[Unit]
+Description=Cyber Awareness database backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cyberaware
+ExecStart=/opt/cyberaware/scripts/backup-db.sh
+EnvironmentFile=/opt/cyberaware/.env.production

@@ -5,9 +5,8 @@ import { requireUnifiedAuth } from "@/lib/unified-auth"
 import { logApiRequest } from "@/lib/request-logger"
 import { rateLimit } from "@/lib/rate-limit"
 import { clampProgress } from "@/lib/constants"
-import { generateCertificate, sendCertificateEmail } from "@/lib/certificates"
-import { summarizeCmiData, isCompletionMet } from "@/lib/scorm"
-import { randomUUID } from "crypto"
+import { summarizeCmiData } from "@/lib/scorm"
+import { certificateService } from "@/services/certificate-service"
 
 const bodySchema = z.object({
   contentType: z.enum(["SCORM", "H5P"]),
@@ -57,6 +56,29 @@ function getScormLessonStatus(data: Record<string, unknown>): string | undefined
     "cmi.completion_status",
     "cmi.success_status",
   ])
+}
+
+type NormalizedStatus = "NotStarted" | "InProgress" | "Completed" | "Passed" | "Failed"
+
+function normalizeCourseStatus(value?: string): NormalizedStatus | null {
+  if (!value) return null
+  const normalized = value.toLowerCase().replace(/_/g, " ").trim()
+  switch (normalized) {
+    case "passed":
+      return "Passed"
+    case "failed":
+      return "Failed"
+    case "completed":
+    case "complete":
+      return "Completed"
+    case "incomplete":
+    case "browsed":
+      return "InProgress"
+    case "not attempted":
+      return "NotStarted"
+    default:
+      return null
+  }
 }
 
 async function getEnrollment(userId: string, courseId: string) {
@@ -229,27 +251,37 @@ async function handleWrite(
       getScormValue(parsed.data.cmiData, ["cmi.core.lesson_location", "cmi.location"])
   }
 
-  const normalizedStatus = lessonStatus?.toLowerCase()
-  const passed =
-    normalizedStatus === "passed" ||
-    (typeof score === "number" && score >= 80)
-
   const scormSummary =
     contentType === "SCORM" && parsed.data.cmiData
       ? summarizeCmiData(parsed.data.cmiData)
       : null
+  const normalizedStatus = normalizeCourseStatus(lessonStatus)
+  const normalizedCompletion = normalizeCourseStatus(scormSummary?.completionStatus ?? undefined)
+  const normalizedSuccess = normalizeCourseStatus(scormSummary?.successStatus ?? undefined)
+  const derivedStatus = normalizedStatus ?? normalizedSuccess ?? normalizedCompletion
 
-  const completionFromScorm = scormSummary
-    ? isCompletionMet(scormSummary.completionStatus, scormSummary.successStatus)
-    : false
+  const failed = derivedStatus === "Failed"
+  const passed =
+    !failed &&
+    (derivedStatus === "Passed" || (typeof score === "number" && score >= 80))
+  const completed =
+    !failed &&
+    (derivedStatus === "Completed" || normalizedCompletion === "Completed")
 
-  const nextStatus = passed
-    ? "Passed"
-    : completionFromScorm
-      ? "Completed"
-      : session.status === "NotStarted"
-        ? "InProgress"
-        : session.status
+  let nextStatus: NormalizedStatus =
+    passed
+      ? "Passed"
+      : completed
+        ? "Completed"
+        : derivedStatus ?? (session.status === "NotStarted" ? "InProgress" : session.status)
+
+  if (
+    (session.status === "Passed" || session.status === "Completed") &&
+    nextStatus !== "Passed" &&
+    nextStatus !== "Completed"
+  ) {
+    nextStatus = session.status
+  }
 
   const now = new Date()
 
@@ -297,47 +329,15 @@ async function handleWrite(
     })
   }
 
-  if (passed && !updatedSession.certificateSent) {
-    const existingCertificate = await prisma.certificate.findUnique({
-      where: { enrollmentId: enrollment.id },
-    })
-
-    if (!existingCertificate) {
-      const certificateId = randomUUID()
-      const completionDate = enrollment.completedAt ?? now
-      const certificate = await generateCertificate({
-        recipientName: auth.user.name || "Jone Doe",
-        courseTitle: enrollment.course.title,
-        completionDate,
-        certificateId,
-      })
-
-      const record = await prisma.certificate.create({
-        data: {
-          enrollmentId: enrollment.id,
-          path: certificate.publicPath,
-          uuid: certificateId,
-          issuedAt: completionDate,
-        },
-      })
-
-      const appBaseUrl = process.env.APP_BASE_URL ?? ""
-      const certificateUrl = `${appBaseUrl}${record.path}`
-      await sendCertificateEmail({
-        to: auth.user.email,
-        name: auth.user.name || "Jone Doe",
-        courseTitle: enrollment.course.title,
-        certificateUrl,
-      })
-    }
-
+  if ((passed || completed) && !updatedSession.certificateSent) {
+    await certificateService.generateAndEmail(auth.user.id, courseId)
     await prisma.courseSession.update({
       where: { id: session.id },
       data: { certificateSent: true },
     })
   }
 
-  if (passed || completionFromScorm) {
+  if (passed || completed) {
     await prisma.enrollment.update({
       where: { id: enrollment.id },
       data: {

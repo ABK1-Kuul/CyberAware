@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly Cyber Awareness backup
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+Unit=awareness-backup.service
+
+[Install]
+WantedBy=timers.target

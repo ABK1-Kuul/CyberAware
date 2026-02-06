@@ -54,6 +54,7 @@ type AuditLogWithActor = {
   actorId: string | null
   action: string
   details: JsonValue
+  complianceStatus?: string | null
   createdAt: Date
   actor: PrismaUser | null
 }
@@ -220,6 +221,7 @@ async function getRecentActivityImpl(): Promise<AuditLog[]> {
       actorId: log.actorId,
       action: log.action,
       details: log.details,
+      complianceStatus: log.complianceStatus ?? null,
       createdAt: log.createdAt.toISOString(),
       actor: log.actor ? mapPrismaUserToUser(log.actor) : null
     }))

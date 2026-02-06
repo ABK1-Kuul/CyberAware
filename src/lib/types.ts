@@ -68,6 +68,7 @@ export interface AuditLog {
   actorId: string | null;
   action: string;
   details: JsonValue;
+  complianceStatus?: string | null;
   createdAt: string;
   actor: User | null;
 }

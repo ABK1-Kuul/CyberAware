@@ -39,6 +39,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ courseI
           contentUrl={result.contentUrl}
           contentType={result.contentType}
           initialState={result.initialState}
+          courseId={courseId}
         />
       </div>
     </div>

@@ -16,6 +16,7 @@ model User {
   email     String   @unique
   role      UserRole @default(learner)
   team      String
+  departmentId String? @map("department_id")
   createdAt DateTime @default(now()) @map("created_at")
   avatarUrl String   @map("avatar_url")
   ssoId     String?  @unique @map("sso_id")
@@ -24,16 +25,83 @@ model User {
   magicTokenPinnedUserAgent String? @map("magic_token_pinned_user_agent")
   magicTokenPinnedAt DateTime? @map("magic_token_pinned_at")
 
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  riskProfile UserRiskProfile?
+  phishingEvents PhishingEvent[]
   enrollments Enrollment[]
   auditLogs   AuditLog[]
   activityLogs ActivityLog[]
   courseSessions CourseSession[]
+  riskProfile UserRiskProfile?
 
   @@map("users")
   @@index([email])
   @@index([role])
+  @@index([departmentId])
   @@index([ssoId])
   @@index([magicToken])
+}
+
+model Department {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  riskScore  Int      @default(50) @map("risk_score")
+  totalUsers Int      @map("total_users")
+  lastSynced DateTime @default(now()) @map("last_synced")
+  users      User[]
+
+  @@map("departments")
+  @@index([riskScore])
+  @@index([lastSynced])
+}
+
+model UserRiskProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  riskScore        Int      @default(50) @map("risk_score")
+  reportingStreak  Int      @default(0) @map("reporting_streak")
+  totalReported    Int      @default(0) @map("total_reported")
+  achievements     Json?    @db.Json @map("achievements")
+  lastReportedAt   DateTime? @map("last_reported_at")
+  lastUpdated      DateTime @default(now()) @map("last_updated")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_risk_profiles")
+  @@index([riskScore])
+  @@index([reportingStreak])
+  @@index([lastReportedAt])
+  @@index([lastUpdated])
+}
+
+model PhishingCampaign {
+  id           String          @id @default(uuid()) // This maps to Gophish Campaign ID
+  name         String
+  status       String
+  targetGroups String          @map("target_groups")
+  results      PhishingEvent[]
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@map("phishing_campaigns")
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PhishingEvent {
+  id         String           @id @default(uuid())
+  campaignId String           @map("campaign_id")
+  campaign   PhishingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId     String           @map("user_id")
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType  String           @map("event_type")
+  occurredAt DateTime         @default(now()) @map("occurred_at")
+  details    Json?            @db.Json
+
+  @@map("phishing_events")
+  @@index([campaignId])
+  @@index([userId])
+  @@index([eventType])
+  @@index([occurredAt])
 }
 
 model Course {
@@ -51,6 +119,7 @@ model Course {
   @@map("courses")
   @@index([createdAt])
 }
+
 
 model Enrollment {
   id          String            @id @default(cuid())
@@ -151,6 +220,7 @@ model AuditLog {
   actorId   String?  @map("actor_id")
   action    String
   details   Json     @db.Json
+  complianceStatus String? @map("compliance_status")
   createdAt DateTime @default(now()) @map("created_at")
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
@@ -159,6 +229,7 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@index([action])
+  @@index([complianceStatus])
 }
 
 model ActivityLog {
