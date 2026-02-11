@@ -6,6 +6,7 @@ import { clampProgress } from '@/lib/constants'
 import { logApiRequest } from '@/lib/request-logger'
 import { rateLimit } from '@/lib/rate-limit'
 import { summarizeCmiData, isCompletionMet, type CmiData } from '@/lib/scorm'
+import { requireUnifiedAuth } from '@/lib/unified-auth'
 
 const bodySchema = z.object({
   cmiData: z.record(z.any()),
@@ -16,7 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ enrollmentId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: 'scorm:commit', limit: 240 })
+  const limit = await rateLimit(request, { keyPrefix: 'scorm:commit', limit: 240 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many commit requests.' },
@@ -30,6 +31,28 @@ export async function POST(
       return NextResponse.json({ error: 'enrollmentId is required' }, { status: 400 })
     }
 
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: { scormData: true },
+    })
+    if (!enrollment) {
+      return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
+    }
+
+    const auth = await requireUnifiedAuth(request, {
+      requireCookie: true,
+      courseId: enrollment.courseId,
+    })
+    if ('status' in auth) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status })
+    }
+    if (auth.user.role !== 'admin' && enrollment.userId !== auth.user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: Enrollment access denied.' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json().catch(() => ({}))
     const parsed = bodySchema.safeParse(body)
     if (!parsed.success) {
@@ -41,14 +64,6 @@ export async function POST(
 
     const cmiData = parsed.data.cmiData as CmiData
     const summary = summarizeCmiData(cmiData)
-
-    const enrollment = await prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      include: { scormData: true },
-    })
-    if (!enrollment) {
-      return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
-    }
 
     const existingLocation = enrollment.scormData?.lastLocation ?? ''
     const nextLocation = summary.lastLocation || existingLocation

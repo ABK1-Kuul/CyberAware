@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logApiRequest } from '@/lib/request-logger'
 import { rateLimit } from '@/lib/rate-limit'
+import { requireUnifiedAuth } from '@/lib/unified-auth'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ enrollmentId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: 'scorm:initialize', limit: 120 })
+  const limit = await rateLimit(request, { keyPrefix: 'scorm:initialize', limit: 120 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many initialize requests.' },
@@ -29,6 +30,19 @@ export async function GET(
     })
     if (!enrollment) {
       return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
+    }
+    const auth = await requireUnifiedAuth(request, {
+      requireCookie: true,
+      courseId: enrollment.courseId,
+    })
+    if ('status' in auth) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status })
+    }
+    if (auth.user.role !== 'admin' && enrollment.userId !== auth.user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: Enrollment access denied.' },
+        { status: 403 }
+      )
     }
 
     if (enrollment.status === 'NotStarted') {

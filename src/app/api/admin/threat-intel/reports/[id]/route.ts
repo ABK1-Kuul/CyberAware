@@ -22,7 +22,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:threat-intel:update", limit: 60 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:threat-intel:update", limit: 60 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests." },

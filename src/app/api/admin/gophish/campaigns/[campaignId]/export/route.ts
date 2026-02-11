@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ campaignId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:gophish:export", limit: 30 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:gophish:export", limit: 30 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many export requests." },

@@ -285,7 +285,7 @@ async function safeAwardBadge(userId: string, badgeType: Parameters<typeof award
 
 export async function POST(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "gophish:webhook", limit: 120 })
+  const limit = await rateLimit(request, { keyPrefix: "gophish:webhook", limit: 120 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many webhook requests." },

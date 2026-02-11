@@ -3,18 +3,35 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logApiRequest } from '@/lib/request-logger'
 import { rateLimit } from '@/lib/rate-limit'
+import { requireUnifiedAuth } from '@/lib/unified-auth'
+import { logAuditEvent, getClientIpFromRequest } from '@/services/audit-service'
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 const ACCEPTED = ['.zip']
 
 export async function POST(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: 'courses:upload', limit: 20 })
+  const limit = await rateLimit(request, { keyPrefix: 'courses:upload', limit: 20 })
+  const rateLimitHeaders = {
+    'X-RateLimit-Limit': String(limit.limit),
+    'X-RateLimit-Remaining': String(limit.remaining),
+    'X-RateLimit-Reset': String(limit.reset),
+  }
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many upload attempts. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limit.retryAfter),
+          ...rateLimitHeaders,
+        },
+      }
     )
+  }
+  const auth = await requireUnifiedAuth(request, ['admin'])
+  if ('status' in auth) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
   }
   try {
     const formData = await request.formData()
@@ -59,6 +76,23 @@ export async function POST(request: Request) {
       },
     })
 
+    // Audit log: Track course upload (admin-only action)
+    await logAuditEvent({
+      action: 'course.upload',
+      actorId: auth.user.id,
+      targetId: course.id,
+      details: {
+        title: course.title,
+        version: course.version,
+        fileName: file.name,
+        fileSize: file.size,
+        scormPath,
+      },
+      ipAddress: getClientIpFromRequest(request),
+      severity: 'INFO',
+      complianceStatus: 'DORA-Compliant',
+    })
+
     return NextResponse.json(
       {
         message: 'Course created successfully.',
@@ -68,7 +102,7 @@ export async function POST(request: Request) {
           version: course.version,
         },
       },
-      { status: 201 }
+      { status: 201, headers: rateLimitHeaders }
     )
   } catch (error) {
     logger.error('Course upload error', { error })

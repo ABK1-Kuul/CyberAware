@@ -10,7 +10,7 @@ type ExportFormat = (typeof VALID_FORMATS)[number]
 
 export async function GET(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:threat-intel:export", limit: 30 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:threat-intel:export", limit: 30 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many export requests." },

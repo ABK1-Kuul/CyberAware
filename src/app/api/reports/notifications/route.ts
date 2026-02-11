@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "reports:notifications", limit: 120 })
+  const limit = await rateLimit(request, { keyPrefix: "reports:notifications", limit: 120 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests." },

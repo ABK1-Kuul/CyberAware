@@ -16,7 +16,7 @@ export async function POST(
   { params }: { params: Promise<{ campaignId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:gophish:stop", limit: 60 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:gophish:stop", limit: 60 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many stop requests." },

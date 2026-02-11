@@ -6,6 +6,8 @@ import { DatabaseError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { logApiRequest } from '@/lib/request-logger'
 import { rateLimit } from '@/lib/rate-limit'
+import { requireUnifiedAuth } from '@/lib/unified-auth'
+import { logAuditEvent, getClientIpFromRequest } from '@/services/audit-service'
 
 const bodySchema = z.object({
   userId: z.string().min(1, 'userId is required'),
@@ -14,12 +16,27 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: 'enrollments:post', limit: 60 })
+  const limit = await rateLimit(request, { keyPrefix: 'enrollments:post', limit: 60 })
+  const rateLimitHeaders = {
+    'X-RateLimit-Limit': String(limit.limit),
+    'X-RateLimit-Remaining': String(limit.remaining),
+    'X-RateLimit-Reset': String(limit.reset),
+  }
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many enrollment requests.' },
-      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limit.retryAfter),
+          ...rateLimitHeaders,
+        },
+      }
     )
+  }
+  const auth = await requireUnifiedAuth(request)
+  if ('status' in auth) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
   }
   try {
     const body = await request.json()
@@ -32,6 +49,12 @@ export async function POST(request: Request) {
       )
     }
     const { userId, courseId } = parsed.data
+    if (auth.user.role !== 'admin' && auth.user.id !== userId) {
+      return NextResponse.json(
+        { error: 'Forbidden: Cannot create enrollment for another user.' },
+        { status: 403 }
+      )
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) {
@@ -49,6 +72,23 @@ export async function POST(request: Request) {
     const actorId = admin?.id ?? userId
 
     const enrollment = await createEnrollment(userId, courseId, actorId)
+
+    // Audit log: Track enrollment creation for compliance
+    await logAuditEvent({
+      action: 'enrollment.create',
+      actorId: auth.user.id,
+      targetId: enrollment.id,
+      details: {
+        userId,
+        courseId,
+        courseTitle: course.title,
+        userName: user.name,
+        userEmail: user.email,
+      },
+      ipAddress: getClientIpFromRequest(request),
+      severity: auth.user.role === 'admin' ? 'INFO' : 'INFO',
+    })
+
     return NextResponse.json(
       {
         message: 'Enrollment created.',
@@ -59,7 +99,7 @@ export async function POST(request: Request) {
           status: enrollment.status,
         },
       },
-      { status: 201 }
+      { status: 201, headers: rateLimitHeaders }
     )
   } catch (e) {
     if (e instanceof DatabaseError && e.message.includes('already exists')) {

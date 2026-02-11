@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:welcome", limit: 60 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:welcome", limit: 60 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests." },

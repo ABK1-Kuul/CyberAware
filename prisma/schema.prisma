@@ -221,7 +221,10 @@ model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?  @map("actor_id")
   action    String
+  targetId  String?  @map("target_id")
+  severity  String   @default("INFO")
   details   Json     @db.Json
+  ipAddress String?  @map("ip_address")
   complianceStatus String? @map("compliance_status")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -229,8 +232,10 @@ model AuditLog {
 
   @@map("audit_logs")
   @@index([actorId])
-  @@index([createdAt])
   @@index([action])
+  @@index([targetId])
+  @@index([severity])
+  @@index([createdAt])
   @@index([complianceStatus])
 }
 

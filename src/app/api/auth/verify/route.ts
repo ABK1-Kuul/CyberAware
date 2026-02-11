@@ -29,7 +29,7 @@ function getContentType(request: Request): "SCORM" | "H5P" {
 
 export async function GET(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "auth:verify", limit: 120 })
+  const limit = await rateLimit(request, { keyPrefix: "auth:verify", limit: 120 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many verification attempts." },

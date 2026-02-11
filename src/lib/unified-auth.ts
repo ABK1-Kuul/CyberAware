@@ -26,6 +26,12 @@ export type UnifiedAuthError = {
   message: string
 }
 
+export type UnifiedAuthOptions = {
+  requireCookie?: boolean
+  courseId?: string
+  roles?: string[]
+}
+
 function getClientIp(request: Request): string {
   return request.headers.get("x-forwarded-for") ?? "unknown"
 }
@@ -72,7 +78,19 @@ function hashIp(ip: string): string {
 }
 
 function getSessionToken(request: Request): string | null {
-  return getCookieValue(request, "session_auth")
+  return (
+    getCookieValue(request, "session_auth") ??
+    getCookieValue(request, "auth_token")
+  )
+}
+
+function resolveAuthOptions(
+  input?: string[] | UnifiedAuthOptions
+): UnifiedAuthOptions {
+  if (Array.isArray(input)) {
+    return { roles: input }
+  }
+  return input ?? {}
 }
 
 async function getUserById(userId: string): Promise<UnifiedAuthUser | null> {
@@ -226,10 +244,23 @@ async function validateSso(
   }
 }
 
+/**
+ * Unified authentication handler with role-based access control (RBAC).
+ *
+ * **Fail-Closed Principle**: This function always fails closed (returns 401 Unauthorized)
+ * if authentication cannot be verified. Database errors, JWT verification failures,
+ * or any other error condition results in denial of access, never "allow by default".
+ *
+ * @param request - The incoming HTTP request
+ * @param rolesOrOptions - Required roles array or options object
+ * @returns Authentication context or error object
+ */
 export async function requireUnifiedAuth(
   request: Request,
-  options: { requireCookie?: boolean; courseId?: string } = {}
+  rolesOrOptions: string[] | UnifiedAuthOptions = {}
 ): Promise<UnifiedAuthContext | UnifiedAuthError> {
+  const options = resolveAuthOptions(rolesOrOptions)
+  const roles = options.roles ?? []
   const clientIp = getClientIp(request)
   const userAgent = getUserAgent(request)
 
@@ -239,14 +270,27 @@ export async function requireUnifiedAuth(
     try {
       payload = verifyJwt(sessionToken, getJwtSecret())
     } catch {
+      // Fail-closed: Any JWT verification error results in 401
       payload = null
     }
     if (!payload) {
       return { status: 401, message: "Invalid session token." }
     }
-    const user = await getUserById(payload.sub)
+    let user: UnifiedAuthUser | null = null
+    try {
+      user = await getUserById(payload.sub)
+    } catch (error) {
+      // Fail-closed: Database errors result in 401, not allowing access
+      return { status: 401, message: "Authentication service unavailable." }
+    }
     if (!user) {
       return { status: 401, message: "Session user not found." }
+    }
+    if (roles.length > 0 && !roles.includes(user.role)) {
+      return { status: 403, message: "Forbidden: Insufficient Permissions" }
+    }
+    if (options.courseId && payload.courseId && payload.courseId !== options.courseId) {
+      return { status: 403, message: "Session token is not valid for this course." }
     }
     if (options.courseId) {
       const ok = await validatePinnedSession({
@@ -274,14 +318,37 @@ export async function requireUnifiedAuth(
 
   const token = getQueryToken(request)
   if (token) {
-    return validateMagicToken(token, clientIp, userAgent)
+    let result: UnifiedAuthContext | UnifiedAuthError
+    try {
+      result = await validateMagicToken(token, clientIp, userAgent)
+    } catch {
+      // Fail-closed: Any error during magic token validation results in 401
+      return { status: 401, message: "Authentication service unavailable." }
+    }
+    if ("status" in result) return result
+    if (roles.length > 0 && !roles.includes(result.user.role)) {
+      return { status: 403, message: "Forbidden: Insufficient Permissions" }
+    }
+    return result
   }
 
   const ssoSubject = getSsoSubject(request)
   if (ssoSubject) {
-    return validateSso(ssoSubject, clientIp, userAgent)
+    let result: UnifiedAuthContext | UnifiedAuthError
+    try {
+      result = await validateSso(ssoSubject, clientIp, userAgent)
+    } catch {
+      // Fail-closed: Any error during SSO validation results in 401
+      return { status: 401, message: "Authentication service unavailable." }
+    }
+    if ("status" in result) return result
+    if (roles.length > 0 && !roles.includes(result.user.role)) {
+      return { status: 403, message: "Forbidden: Insufficient Permissions" }
+    }
+    return result
   }
 
+  // Fail-closed: No authentication credentials found = 401
   return { status: 401, message: "Missing authentication credentials." }
 }
 

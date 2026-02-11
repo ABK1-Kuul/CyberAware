@@ -264,7 +264,7 @@ async function notifySocTeam(input: {
 
 export async function POST(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "reports:submit", limit: 60 })
+  const limit = await rateLimit(request, { keyPrefix: "reports:submit", limit: 60 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests." },

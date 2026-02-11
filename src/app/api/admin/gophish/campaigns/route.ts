@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "admin:gophish:campaigns", limit: 120 })
+  const limit = await rateLimit(request, { keyPrefix: "admin:gophish:campaigns", limit: 120 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many campaign requests." },

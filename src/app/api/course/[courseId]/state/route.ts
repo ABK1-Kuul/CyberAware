@@ -130,7 +130,7 @@ export async function GET(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "course:state:get", limit: 180 })
+  const limit = await rateLimit(request, { keyPrefix: "course:state:get", limit: 180 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many state fetch requests." },
@@ -195,7 +195,7 @@ async function handleWrite(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   logApiRequest(request)
-  const limit = rateLimit(request, { keyPrefix: "course:state:write", limit: 300 })
+  const limit = await rateLimit(request, { keyPrefix: "course:state:write", limit: 300 })
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many state update requests." },
