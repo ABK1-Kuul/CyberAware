@@ -28,6 +28,7 @@ model User {
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   riskProfile UserRiskProfile?
   phishingEvents PhishingEvent[]
+  reportedItems ReportedItem[]
   enrollments Enrollment[]
   auditLogs   AuditLog[]
   activityLogs ActivityLog[]
@@ -245,6 +246,76 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
   @@index([action])
+}
+
+model ReportedItem {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            ReportType
+  targetUrl       String   @map("target_url")
+  emailSubject    String?  @map("email_subject")
+  headers         Json?    @db.Json
+  senderIp        String?  @map("sender_ip")
+  returnPath      String?  @map("return_path")
+  messageId       String?  @map("message_id")
+  emailBody       String?  @db.LongText @map("email_body")
+  status          IncidentStatus @default(PENDING)
+  gophishCampaignId String? @map("gophish_campaign_id")
+  incidentGroupId String?  @map("incident_group_id")
+  incidentGroup   IncidentGroup? @relation(fields: [incidentGroupId], references: [id], onDelete: SetNull)
+  riskScoreAtReport Int    @map("risk_score_at_report")
+  wasRealThreat   Boolean? @map("was_real_threat")
+  remediationTaken String? @map("remediation_taken")
+  screenshotUrl   String?  @map("screenshot_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("reported_items")
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([gophishCampaignId])
+  @@index([incidentGroupId])
+  @@index([messageId])
+  @@index([createdAt])
+}
+
+model IncidentGroup {
+  id              String   @id @default(uuid())
+  normalizedUrl   String   @unique @map("normalized_url")
+  domain          String   @map("domain")
+  firstReportedAt DateTime @default(now()) @map("first_reported_at")
+  lastReportedAt  DateTime @default(now()) @map("last_reported_at")
+  reportCount     Int      @default(1) @map("report_count")
+  severity        IncidentSeverity @default(LOW)
+  vtDetections    Int?     @map("vt_detections")
+  reports         ReportedItem[]
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("incident_groups")
+  @@index([domain])
+  @@index([severity])
+  @@index([lastReportedAt])
+}
+
+enum ReportType {
+  SIMULATION
+  EXTERNAL
+}
+
+enum IncidentStatus {
+  PENDING
+  VERIFIED_THREAT
+  FALSE_POSITIVE
+  ARCHIVED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 enum UserRole {

@@ -26,6 +26,7 @@ export type GophishEntityRef = {
 } & JsonRecord
 
 export type GophishCampaignResult = {
+  id?: string
   email: string
   status: string
   reported?: boolean
@@ -398,6 +399,13 @@ async function deleteGroup(groupId: number): Promise<void> {
   await gophishRequest(`/api/groups/${groupId}`, { method: "DELETE" })
 }
 
+async function reportResult(resultId: string): Promise<void> {
+  if (!resultId) return
+  await gophishRequest(`/api/results/${encodeURIComponent(resultId)}/report`, {
+    method: "POST",
+  })
+}
+
 export const gophishApi = {
   getCampaigns,
   getCampaign,
@@ -456,4 +464,5 @@ export const gophishApi = {
   createGroup,
   updateGroup,
   deleteGroup,
+  reportResult,
 }

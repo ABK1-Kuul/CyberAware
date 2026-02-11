@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "CyberAware Human Firewall",
+  "version": "0.1.0",
+  "description": "One-click phishing reporting with instant feedback.",
+  "action": {
+    "default_title": "Report Phish",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.live.com/*"
+      ],
+      "js": ["content/webmail-scrapers.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Home, Radar, Settings, UploadCloud, Users } from "lucide-react"
+import { BookOpen, Home, Radar, Settings, ShieldAlert, UploadCloud, Users } from "lucide-react"
 import {
   SidebarHeader,
   SidebarContent,
@@ -38,6 +38,7 @@ export function AppSidebar() {
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/analytics", label: "Command Center", icon: Radar },
+    { href: "/threat-intel", label: "Threat Intel", icon: ShieldAlert },
     { href: "/courses", label: "Courses", icon: BookOpen },
     { href: "/users", label: "Learners", icon: Users },
     { href: "/settings", label: "Settings", icon: Settings },
