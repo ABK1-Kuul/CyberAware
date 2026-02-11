@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { ThreatIntelDashboard } from "@/components/app/threat-intel/threat-intel-dashboard"
 
 export default async function ThreatIntelPage() {
-  const [reportedCount, clickedCount, simulations, externalReports] = await Promise.all([
+  const [reportedCount, clickedCount, simulations, externalReports, blockedDomains] =
+    await Promise.all([
     prisma.phishingEvent.count({ where: { eventType: "Reported Phish" } }),
     prisma.phishingEvent.count({ where: { eventType: "Clicked Link" } }),
     prisma.reportedItem.findMany({
@@ -30,6 +31,11 @@ export default async function ThreatIntelPage() {
         },
       },
     }),
+    prisma.blockedDomain.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: { id: true, domain: true, source: true, createdAt: true },
+    }),
   ])
 
   return (
@@ -40,6 +46,7 @@ export default async function ThreatIntelPage() {
         items: simulations,
       }}
       externalReports={externalReports}
+      blockedDomains={blockedDomains}
     />
   )
 }

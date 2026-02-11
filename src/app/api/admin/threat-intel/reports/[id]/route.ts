@@ -5,6 +5,8 @@ import { logApiRequest } from "@/lib/request-logger"
 import { rateLimit } from "@/lib/rate-limit"
 import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
+import { normalizeDomain } from "@/services/threat-matcher"
+import { createGlobalNotification } from "@/services/emergency-broadcast"
 
 const updateSchema = z
   .object({
@@ -47,7 +49,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     const report = await prisma.reportedItem.findUnique({
       where: { id: params.id },
-      select: { id: true, userId: true, status: true },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        targetUrl: true,
+        incidentGroupId: true,
+      },
     })
     if (!report) {
       return NextResponse.json({ error: "Report not found." }, { status: 404 })
@@ -71,6 +79,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     })
 
     if (parsed.data.notifyType) {
+      const message =
+        parsed.data.notifyType === "VERIFIED_THREAT"
+          ? "Verified Threat: Thank you for reporting this attack."
+          : "Thank you for reporting. Your vigilance keeps everyone safe."
+      await prisma.userNotification.create({
+        data: {
+          userId: report.userId,
+          message,
+        },
+      })
       await prisma.activityLog.create({
         data: {
           userId: report.userId,
@@ -80,6 +98,31 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             type: parsed.data.notifyType,
           },
         },
+      })
+    }
+
+    const isVerified =
+      updated.status === "VERIFIED_THREAT" || updated.wasRealThreat === true
+    if (isVerified) {
+      const domain = normalizeDomain(report.targetUrl)
+      if (domain) {
+        await prisma.blockedDomain.upsert({
+          where: { domain },
+          update: { updatedAt: new Date() },
+          create: {
+            domain,
+            source: "admin-verified",
+            reportId: report.id,
+            incidentGroupId: report.incidentGroupId ?? null,
+          },
+        })
+      }
+      await createGlobalNotification({
+        title: "CRITICAL: Verified Threat Confirmed",
+        message: `Security confirmed an active threat. Do not engage with ${domain ?? "the reported domain"}.`,
+        severity: "CRITICAL",
+        domain: domain ?? undefined,
+        reportId: report.id,
       })
     }
 

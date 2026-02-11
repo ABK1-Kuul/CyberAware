@@ -49,6 +49,7 @@ type ThreatIntelDashboardProps = {
     items: SimulationItem[]
   }
   externalReports: ExternalReport[]
+  blockedDomains: Array<{ id: string; domain: string; source?: string | null; createdAt: string | Date }>
 }
 
 function formatDate(value: string | Date) {
@@ -78,7 +79,11 @@ function statusBadge(status: string) {
   return <Badge variant="secondary">Pending</Badge>
 }
 
-export function ThreatIntelDashboard({ simulations, externalReports }: ThreatIntelDashboardProps) {
+export function ThreatIntelDashboard({
+  simulations,
+  externalReports,
+  blockedDomains,
+}: ThreatIntelDashboardProps) {
   const [externalItems, setExternalItems] = useState(externalReports)
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const { toast } = useToast()
@@ -122,6 +127,34 @@ export function ThreatIntelDashboard({ simulations, externalReports }: ThreatInt
 
   const notifyUser = async (id: string, type: "THANK_YOU" | "VERIFIED_THREAT") => {
     await updateReport(id, { notifyType: type })
+  }
+
+  const exportBlocklist = (format: "csv" | "json") => {
+    const rows = blockedDomains.map((entry) => ({
+      domain: entry.domain,
+      source: entry.source ?? "verified",
+      createdAt: formatDate(entry.createdAt),
+    }))
+    const fileName = `blocked-domains-${new Date().toISOString().slice(0, 10)}.${format}`
+    let content = ""
+    if (format === "json") {
+      content = JSON.stringify(rows, null, 2)
+    } else {
+      const header = "domain,source,createdAt"
+      const lines = rows.map((row) =>
+        [row.domain, row.source, row.createdAt].map((value) => `"${value}"`).join(",")
+      )
+      content = [header, ...lines].join("\n")
+    }
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -193,8 +226,16 @@ export function ThreatIntelDashboard({ simulations, externalReports }: ThreatInt
 
         <TabsContent value="external">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>External Alerts</CardTitle>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => exportBlocklist("csv")}>
+                  Export CSV
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => exportBlocklist("json")}>
+                  Export JSON
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {sortedExternal.length === 0 ? (

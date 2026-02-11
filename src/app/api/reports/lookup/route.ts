@@ -28,23 +28,51 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing url parameter." }, { status: 400 })
   }
 
-  const gophishMatch = await matchGophishCampaignByDomain(targetUrl)
-  if (gophishMatch) {
-    return NextResponse.json({
-      rating: "SIMULATION",
-      campaignId: gophishMatch.campaignId,
-    })
+  try {
+    const gophishMatch = await matchGophishCampaignByDomain(targetUrl)
+    if (gophishMatch) {
+      return NextResponse.json({
+        rating: "SIMULATION",
+        campaignId: gophishMatch.campaignId,
+      })
+    }
+  } catch {
+    // ignore gophish lookup errors
   }
 
   const domain = normalizeDomain(targetUrl)
   if (domain) {
+    const blocked = await prisma.blockedDomain.findUnique({
+      where: { domain },
+      select: { id: true, createdAt: true },
+    })
+    if (blocked) {
+      return NextResponse.json({
+        rating: "DANGER",
+        severity: "CRITICAL",
+        blocked: true,
+      })
+    }
+
     const incident = await prisma.incidentGroup.findFirst({
       where: { domain },
       orderBy: { lastReportedAt: "desc" },
       select: { id: true, severity: true },
     })
     if (incident) {
-      return NextResponse.json({ rating: "DANGER", severity: incident.severity })
+      const recent = new Date().getTime() - 5 * 60 * 1000
+      const recentReport = await prisma.reportedItem.findFirst({
+        where: {
+          incidentGroupId: incident.id,
+          createdAt: { gte: new Date(recent) },
+        },
+        select: { id: true },
+      })
+      return NextResponse.json({
+        rating: "DANGER",
+        severity: incident.severity,
+        recent: Boolean(recentReport),
+      })
     }
   }
 

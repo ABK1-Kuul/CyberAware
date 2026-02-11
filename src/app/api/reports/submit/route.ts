@@ -19,6 +19,7 @@ import {
   normalizeDomain,
   normalizeIncidentUrl,
 } from "@/services/threat-matcher"
+import { triggerThresholdBroadcast } from "@/services/emergency-broadcast"
 
 const FAILURE_EVENT_TYPES = ["Clicked Link", "Submitted Data"]
 const REPORT_EVENT_TYPE = "Reported Phish"
@@ -506,6 +507,15 @@ export async function POST(request: Request) {
             vtDetections: vtResult.detections,
             lastReportedAt: new Date(),
           },
+        })
+      }
+
+      if (incidentGroup.domain) {
+        await triggerThresholdBroadcast({
+          incidentGroupId: incidentGroup.id,
+          domain: incidentGroup.domain,
+          reportId: report.id,
+          threshold: 3,
         })
       }
     }

@@ -32,6 +32,7 @@ model User {
   enrollments Enrollment[]
   auditLogs   AuditLog[]
   activityLogs ActivityLog[]
+  userNotifications UserNotification[]
   courseSessions CourseSession[]
   riskProfile UserRiskProfile?
 
@@ -297,6 +298,50 @@ model IncidentGroup {
   @@index([domain])
   @@index([severity])
   @@index([lastReportedAt])
+}
+
+model GlobalNotification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  severity  String
+  active    Boolean  @default(true)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("global_notifications")
+  @@index([severity])
+  @@index([active])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model UserNotification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("user_notifications")
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model BlockedDomain {
+  id          String   @id @default(uuid())
+  domain      String   @unique
+  source      String?  @map("source")
+  reportId    String?  @map("report_id")
+  incidentGroupId String? @map("incident_group_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("blocked_domains")
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
 enum ReportType {

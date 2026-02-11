@@ -33,6 +33,22 @@ type ReportResponse = {
   duplicate?: boolean
 }
 
+type NotificationPayload = {
+  globalNotifications?: Array<{ id: string; title: string; message: string; severity: string }>
+  userNotifications?: Array<{ id: string; message: string }>
+  recentReports?: Array<{
+    id: string
+    type: string
+    status: string
+    targetUrl: string
+    createdAt: string
+    incidentGroup?: { severity?: string | null }
+  }>
+  communityImpact?: number
+}
+
+type GlobalAlert = { id: string; title: string; message: string; severity: string }
+
 const chromeApi = (globalThis as typeof globalThis & { chrome?: any }).chrome
 const DEFAULT_API_BASE_URL = "http://localhost:9002"
 
@@ -43,6 +59,15 @@ function safeHostname(url?: string | null) {
   } catch {
     return "unknown"
   }
+}
+
+function formatReportStatus(status?: string | null) {
+  const normalized = (status ?? "").toUpperCase()
+  if (normalized.includes("VERIFIED")) return "Threat Neutralized"
+  if (normalized.includes("FALSE")) return "Cleared"
+  if (normalized.includes("ARCHIVED")) return "Archived"
+  if (normalized.includes("PENDING")) return "Under Investigation"
+  return "Queued"
 }
 
 function App() {
@@ -61,6 +86,9 @@ function App() {
   const [includeBody, setIncludeBody] = useState(false)
   const [pulse, setPulse] = useState(false)
   const lastHostRef = useRef<string | null>(null)
+  const [liveFeed, setLiveFeed] = useState<NotificationPayload["recentReports"]>([])
+  const [communityImpact, setCommunityImpact] = useState<number | null>(null)
+  const [globalAlert, setGlobalAlert] = useState<GlobalAlert | null>(null)
 
   useEffect(() => {
     if (!chromeApi?.storage) {
@@ -73,6 +101,11 @@ function App() {
       if (result?.authToken) setAuthToken(result.authToken)
     })
   }, [])
+
+  useEffect(() => {
+    if (!apiBaseUrl) return
+    loadLiveFeed()
+  }, [apiBaseUrl, authToken])
 
   useEffect(() => {
     if (!chromeApi?.runtime?.onMessage) return
@@ -217,6 +250,21 @@ function App() {
     })
   }
 
+  async function loadLiveFeed() {
+    try {
+      const endpoint = new URL("/api/reports/notifications", apiBaseUrl)
+      if (authToken) endpoint.searchParams.set("token", authToken)
+      const response = await fetch(endpoint.toString(), { credentials: "include" })
+      if (!response.ok) return
+      const payload = (await response.json()) as NotificationPayload
+      setLiveFeed(payload.recentReports ?? [])
+      setCommunityImpact(payload.communityImpact ?? null)
+      setGlobalAlert(payload.globalNotifications?.[0] ?? null)
+    } catch {
+      // ignore feed errors
+    }
+  }
+
   async function submitReport() {
     if (!tabInfo?.url) return
     setStatus("submitting")
@@ -262,6 +310,7 @@ function App() {
       setTrackingId(data.trackingId ?? data.reportId ?? null)
       setMessage(data.message ?? "Report submitted.")
       setStatus("success")
+      await loadLiveFeed()
     } catch (err) {
       setStatus("error")
       setError(err instanceof Error ? err.message : "Report submission failed.")
@@ -605,6 +654,33 @@ function App() {
       {reportType === "EXTERNAL" && trackingId && (
         <div className="tracking">Tracking ID: {trackingId}</div>
       )}
+
+      {globalAlert && (
+        <div className="card hero">
+          <div className="label">Global Alert</div>
+          <div className="value">{globalAlert.title}</div>
+          <div className="meta">{globalAlert.message}</div>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="label">Live Feed</div>
+        {liveFeed && liveFeed.length ? (
+          <div className="signals">
+            {liveFeed.map((report) => (
+              <div key={report.id}>
+                {formatReportStatus(report.status)} •{" "}
+                <span>{safeHostname(report.targetUrl)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="meta">No recent reports yet.</div>
+        )}
+        {communityImpact !== null && (
+          <div className="meta">Community Impact: {communityImpact} colleagues protected today.</div>
+        )}
+      </div>
 
       <button className="link" onClick={() => setSettingsOpen((open) => !open)}>
         {settingsOpen ? "Hide settings" : "Settings"}
