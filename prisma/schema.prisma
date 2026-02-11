@@ -305,6 +305,8 @@ model GlobalNotification {
   title     String
   message   String
   severity  String
+  reportId  String?  @map("report_id")
+  domain    String?
   active    Boolean  @default(true)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
@@ -314,6 +316,7 @@ model GlobalNotification {
   @@index([active])
   @@index([expiresAt])
   @@index([createdAt])
+  @@index([domain])
 }
 
 model UserNotification {

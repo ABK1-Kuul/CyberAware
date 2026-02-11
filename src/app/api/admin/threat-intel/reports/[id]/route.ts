@@ -17,7 +17,10 @@ const updateSchema = z
   })
   .strict()
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   logApiRequest(request)
   const limit = rateLimit(request, { keyPrefix: "admin:threat-intel:update", limit: 60 })
   if (!limit.ok) {
@@ -47,8 +50,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   try {
+    const { id } = await params
     const report = await prisma.reportedItem.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         userId: true,
@@ -74,7 +78,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     const updated = await prisma.reportedItem.update({
-      where: { id: params.id },
+      where: { id },
       data,
     })
 

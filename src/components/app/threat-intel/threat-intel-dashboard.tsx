@@ -8,6 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
 
 type SimulationItem = {
@@ -129,33 +135,12 @@ export function ThreatIntelDashboard({
     await updateReport(id, { notifyType: type })
   }
 
-  const exportBlocklist = (format: "csv" | "json") => {
-    const rows = blockedDomains.map((entry) => ({
-      domain: entry.domain,
-      source: entry.source ?? "verified",
-      createdAt: formatDate(entry.createdAt),
-    }))
-    const fileName = `blocked-domains-${new Date().toISOString().slice(0, 10)}.${format}`
-    let content = ""
-    if (format === "json") {
-      content = JSON.stringify(rows, null, 2)
-    } else {
-      const header = "domain,source,createdAt"
-      const lines = rows.map((row) =>
-        [row.domain, row.source, row.createdAt].map((value) => `"${value}"`).join(",")
-      )
-      content = [header, ...lines].join("\n")
-    }
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+  const exportFromApi = (format: "CSV" | "JSON" | "PALO_ALTO" | "FORTINET" | "M365") => {
+    const url = `/api/admin/threat-intel/export?format=${format}`
+    window.open(url, "_blank")
   }
+
+  const exportDisabled = blockedDomains.length === 0
 
   return (
     <div className="grid gap-6">
@@ -228,14 +213,26 @@ export function ThreatIntelDashboard({
           <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>External Alerts</CardTitle>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => exportBlocklist("csv")}>
-                  Export CSV
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => exportBlocklist("json")}>
-                  Export JSON
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" disabled={exportDisabled}>
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportFromApi("CSV")}>CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportFromApi("JSON")}>JSON</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportFromApi("PALO_ALTO")}>
+                    Palo Alto EDL
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportFromApi("FORTINET")}>
+                    Fortinet CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportFromApi("M365")}>
+                    M365 Blocklist
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardHeader>
             <CardContent>
               {sortedExternal.length === 0 ? (

@@ -3,6 +3,7 @@ type RatingResponse = {
   severity?: string | null
   blocked?: boolean
   recent?: boolean
+  reportCount?: number
 }
 
 const chromeApi = (globalThis as typeof globalThis & { chrome?: any }).chrome

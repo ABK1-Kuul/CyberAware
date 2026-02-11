@@ -53,9 +53,9 @@ export async function GET(request: Request) {
       prisma.user.count(),
     ])
 
-  if (markRead && userNotifications.length) {
+  if (markRead) {
     await prisma.userNotification.updateMany({
-      where: { id: { in: userNotifications.map((note) => note.id) } },
+      where: { userId: auth.user.id, isRead: false },
       data: { isRead: true },
     })
   }

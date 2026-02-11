@@ -8,14 +8,14 @@
     "default_popup": "popup.html"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/background.js"
   },
   "permissions": ["storage", "activeTab", "scripting", "tabs", "alarms", "notifications"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/blocklist-guard.js"],
+      "js": ["dist/content/blocklist-guard.js"],
       "run_at": "document_start"
     },
     {
@@ -25,7 +25,7 @@
         "https://outlook.office365.com/*",
         "https://outlook.live.com/*"
       ],
-      "js": ["content/webmail-scrapers.js"],
+      "js": ["dist/content/webmail-scrapers.js"],
       "run_at": "document_idle"
     }
   ]

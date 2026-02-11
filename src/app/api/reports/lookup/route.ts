@@ -46,32 +46,34 @@ export async function GET(request: Request) {
       where: { domain },
       select: { id: true, createdAt: true },
     })
+    const incidentForDomain = await prisma.incidentGroup.findFirst({
+      where: { domain },
+      orderBy: { lastReportedAt: "desc" },
+      select: { id: true, severity: true, reportCount: true },
+    })
     if (blocked) {
       return NextResponse.json({
         rating: "DANGER",
-        severity: "CRITICAL",
+        severity: incidentForDomain?.severity ?? "CRITICAL",
         blocked: true,
+        reportCount: incidentForDomain?.reportCount ?? undefined,
       })
     }
 
-    const incident = await prisma.incidentGroup.findFirst({
-      where: { domain },
-      orderBy: { lastReportedAt: "desc" },
-      select: { id: true, severity: true },
-    })
-    if (incident) {
+    if (incidentForDomain) {
       const recent = new Date().getTime() - 5 * 60 * 1000
       const recentReport = await prisma.reportedItem.findFirst({
         where: {
-          incidentGroupId: incident.id,
+          incidentGroupId: incidentForDomain.id,
           createdAt: { gte: new Date(recent) },
         },
         select: { id: true },
       })
       return NextResponse.json({
         rating: "DANGER",
-        severity: incident.severity,
+        severity: incidentForDomain.severity,
         recent: Boolean(recentReport),
+        reportCount: incidentForDomain.reportCount,
       })
     }
   }

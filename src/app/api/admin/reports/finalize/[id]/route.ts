@@ -4,7 +4,10 @@ import { logger } from "@/lib/logger"
 import { logApiRequest } from "@/lib/request-logger"
 import { finalizeAuditReport } from "@/services/compliance-report"
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   logApiRequest(request)
 
   const auth = await requireUnifiedAuth(request)
@@ -16,8 +19,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   try {
+    const { id } = await params
     const { hash } = await finalizeAuditReport({
-      reportId: params.id,
+      reportId: id,
       actorId: auth.user.id,
       clientIp: auth.clientIp,
     })

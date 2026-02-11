@@ -58,6 +58,8 @@ export async function createGlobalNotification(input: BroadcastInput) {
       title: input.title,
       message: input.message,
       severity,
+      reportId: input.reportId ?? null,
+      domain: input.domain ?? null,
       active: true,
       expiresAt,
     },

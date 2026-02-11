@@ -293,6 +293,12 @@ export async function POST(request: Request) {
     )
   }
   try {
+    if (!env.GOPHISH_WEBHOOK_SECRET) {
+      return NextResponse.json(
+        { error: "Gophish webhook secret not configured." },
+        { status: 500 }
+      )
+    }
     const signature = request.headers.get("x-gophish-signature")
     if (!signature) {
       return NextResponse.json({ error: "Missing x-gophish-signature header." }, { status: 401 })

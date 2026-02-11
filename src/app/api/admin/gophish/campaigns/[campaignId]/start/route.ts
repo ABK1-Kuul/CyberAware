@@ -5,6 +5,7 @@ import { requireUnifiedAuth } from "@/lib/unified-auth"
 import { logApiRequest } from "@/lib/request-logger"
 import { rateLimit } from "@/lib/rate-limit"
 import { logger } from "@/lib/logger"
+import { prisma } from "@/lib/prisma"
 
 function parseCampaignId(value: string) {
   const parsed = Number.parseInt(value, 10)
@@ -75,6 +76,20 @@ export async function POST(
       page: { name: pageName },
       smtp: { name: smtpName },
       groups: groupNames.map((name) => ({ name })),
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        action: "gophish.campaign.start",
+        actorId: auth.user.id,
+        complianceStatus: "NIST-Aligned",
+        details: {
+          campaignId: started.id,
+          sourceId: source.id,
+          threatScenario: "General Phishing",
+          actorIp: auth.clientIp || "0.0.0.0",
+        },
+      },
     })
 
     return NextResponse.json({
